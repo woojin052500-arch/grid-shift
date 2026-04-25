@@ -1,9 +1,9 @@
-import './globals.css'   // ← 이게 빠져 있어서 Tailwind가 안 로드됨
+import './globals.css';
 
 export const metadata = {
   title: 'Grid Shift',
   description: 'Swipe, Blast, and Combo!',
-}
+};
 
 export default function RootLayout({
   children,
@@ -14,5 +14,5 @@ export default function RootLayout({
     <html lang="en">
       <body>{children}</body>
     </html>
-  )
+  );
 }
