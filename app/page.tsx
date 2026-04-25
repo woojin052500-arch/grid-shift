@@ -242,20 +242,13 @@ function LeaderboardModal({
                       : "bg-gray-800/60"}
                   `}
                 >
-                  {/* 순위 뱃지 */}
                   <span className={`text-lg w-8 text-center ${isFirst ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-gray-500"}`}>
                     {rankLabel}
                   </span>
-
-                  {/* 국가 플래그 이모지 */}
                   <span className="text-lg">{countryFlag(entry.country_code)}</span>
-
-                  {/* 플레이어 이름 */}
                   <span className="flex-1 text-white font-bold text-sm truncate">
                     {entry.player_name}
                   </span>
-
-                  {/* 점수 */}
                   <span className={`font-black tabular-nums text-sm ${isFirst ? "text-yellow-400" : "text-gray-300"}`}>
                     {entry.score.toLocaleString()}
                   </span>
@@ -310,7 +303,6 @@ function GameOverModal({
         transition={{ type: "spring", damping: 18, stiffness: 240 }}
         className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800"
       >
-        {/* 타이틀 영역 */}
         <div className="text-center mb-6">
           <motion.div
             initial={{ scale: 0 }}
@@ -332,7 +324,6 @@ function GameOverModal({
           </motion.p>
         </div>
 
-        {/* 이름 입력 or 제출 완료 메시지 */}
         {!submitted ? (
           <div className="space-y-3">
             <div className="relative">
@@ -383,7 +374,6 @@ function GameOverModal({
           </motion.div>
         )}
 
-        {/* 하단 액션 버튼 */}
         <div className="flex gap-2 mt-4">
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -418,7 +408,6 @@ export default function GridShift() {
   const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number }[]>([]);
   const [movesLeft, setMovesLeft] = useState(MAX_SWIPES);
 
-  // 리더보드 & 게임 오버 상태
   const [showGameOver, setShowGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
@@ -427,19 +416,14 @@ export default function GridShift() {
   const shakeControls = useAnimation();
   const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
-  // 게임 오버 중복 트리거 방지용 ref
   const gameOverTriggered = useRef(false);
 
-  // ============================================================
-  // 🏆 리더보드 데이터 패치
-  // ============================================================
+  // ── 리더보드 패치 ──
   const fetchLeaderboard = useCallback(async () => {
     setIsLoadingBoard(true);
-    console.log("[LEADERBOARD] TOP 10 패치 시작...");
     const entries = await getTopScores();
     setLeaderboardEntries(entries);
     setIsLoadingBoard(false);
-    console.log("[LEADERBOARD] 패치 완료:", entries.length, "명");
   }, []);
 
   const handleOpenLeaderboard = useCallback(async () => {
@@ -447,25 +431,17 @@ export default function GridShift() {
     await fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  // ============================================================
-  // 📤 점수 제출 핸들러
-  // ============================================================
+  // ── 점수 제출 ──
   const handleSubmitScore = useCallback(
     async (playerName: string) => {
       const countryCode = getCountryCode();
-      console.log("[SUBMIT] 제출 데이터:", { playerName, score, countryCode });
       const success = await submitScore(playerName, score, countryCode);
-      if (success) {
-        console.log("[SUBMIT] 성공! 리더보드 갱신 중...");
-        await fetchLeaderboard();
-      }
+      if (success) await fetchLeaderboard();
     },
     [score, fetchLeaderboard]
   );
 
-  // ============================================================
-  // 💥 화면 흔들기 (콤보 3회 이상)
-  // ============================================================
+  // ── 화면 흔들기 ──
   const triggerShake = useCallback(
     async (intensity: number) => {
       const amp = Math.min(intensity * 3, 15);
@@ -478,9 +454,7 @@ export default function GridShift() {
     [shakeControls]
   );
 
-  // ============================================================
-  // 🎆 파티클 생성
-  // ============================================================
+  // ── 파티클 생성 ──
   const spawnParticles = useCallback((cellKeys: string[], currentGrid: Color[][]) => {
     if (!boardRef.current) return;
     const boardRect = boardRef.current.getBoundingClientRect();
@@ -513,32 +487,23 @@ export default function GridShift() {
     }, 900);
   }, []);
 
-  // ============================================================
-  // 🔁 폭발 → 중력 → 재검사 콤보 사이클 (재귀)
-  // ============================================================
+  // ── 폭발 → 중력 → 재검사 콤보 사이클 ──
   const runBlastCycle = useCallback(
     async (currentGrid: Color[][], currentCombo: number) => {
       const blasted = find2x2Blasts(currentGrid);
 
       if (blasted.size === 0) {
-        // 더 이상 터질 게 없음 → 사이클 종료
-        console.log(`[CYCLE] 종료. 최종 콤보: ${currentCombo}`);
         setCombo(currentCombo);
         setIsAnimating(false);
         return;
       }
 
-      // 파티클 발사
       spawnParticles([...blasted], currentGrid);
-
-      // 터지는 셀 하이라이트 on
       setBlastingCells(blasted);
 
-      // 점수 계산: 터진 셀 수 × 10점 × (콤보+1) 배수
       const earnedScore = blasted.size * 10 * (currentCombo + 1);
       setScore((prev) => prev + earnedScore);
 
-      // 스코어 팝업 표시
       if (boardRef.current) {
         const boardRect = boardRef.current.getBoundingClientRect();
         const cellSize = boardRect.width / GRID_SIZE;
@@ -558,10 +523,8 @@ export default function GridShift() {
         }, 800);
       }
 
-      // 콤보 3회 이상이면 화면 흔들기
       if (currentCombo >= 2) triggerShake(currentCombo);
 
-      // 350ms 후: 블록 제거 + 중력 적용
       await new Promise((res) => setTimeout(res, 350));
       setBlastingCells(new Set());
 
@@ -569,16 +532,13 @@ export default function GridShift() {
       const afterGravity = applyGravity(afterRemove);
       setGrid(afterGravity);
 
-      // 300ms 후: 재검사 (콤보 +1)
       await new Promise((res) => setTimeout(res, 300));
       runBlastCycle(afterGravity, currentCombo + 1);
     },
     [spawnParticles, triggerShake]
   );
 
-  // ============================================================
-  // 👆 드래그 시작 (터치 + 마우스 공통)
-  // ============================================================
+  // ── 드래그 시작 ──
   const handleDragStart = useCallback(
     (x: number, y: number, row: number, col: number) => {
       if (isAnimating || showGameOver) return;
@@ -587,9 +547,7 @@ export default function GridShift() {
     [isAnimating, showGameOver]
   );
 
-  // ============================================================
-  // 👆 드래그 종료 → 방향 판별 → 시프트 → 폭발 사이클 시작
-  // ============================================================
+  // ── 드래그 종료 → 시프트 → 폭발 사이클 ──
   const handleDragEnd = useCallback(
     async (endX: number, endY: number) => {
       if (!dragStart.current || isAnimating || showGameOver) return;
@@ -600,18 +558,14 @@ export default function GridShift() {
       const deltaY = endY - y;
       const THRESHOLD = 10;
 
-      // 드래그 거리가 임계값 미만이면 무시
       if (Math.abs(deltaX) < THRESHOLD && Math.abs(deltaY) < THRESHOLD) return;
 
-      // 이동 횟수 차감
       const newMovesLeft = movesLeft - 1;
       setMovesLeft(newMovesLeft);
-      console.log(`[SWIPE] 잔여 이동: ${newMovesLeft}/${MAX_SWIPES}`);
 
       setIsAnimating(true);
       setCombo(0);
 
-      // 방향 판별: |deltaX| > |deltaY| 이면 가로, 아니면 세로
       let newGrid: Color[][];
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
         newGrid = shiftRow(grid, row, deltaX > 0 ? 1 : -1);
@@ -621,23 +575,18 @@ export default function GridShift() {
 
       setGrid(newGrid);
 
-      // 200ms 후 블라스트 사이클 시작
       await new Promise((res) => setTimeout(res, 200));
       await runBlastCycle(newGrid, 0);
 
-      // 이동 소진 시 게임 오버 트리거 (중복 방지)
       if (newMovesLeft <= 0 && !gameOverTriggered.current) {
         gameOverTriggered.current = true;
-        console.log("[GAME OVER] 이동 소진!");
         setShowGameOver(true);
       }
     },
     [grid, isAnimating, showGameOver, movesLeft, runBlastCycle]
   );
 
-  // ============================================================
-  // 📱 터치 이벤트
-  // ============================================================
+  // ── 터치 이벤트 ──
   const onTouchStart = useCallback(
     (e: React.TouchEvent, row: number, col: number) => {
       const t = e.touches[0];
@@ -654,9 +603,7 @@ export default function GridShift() {
     [handleDragEnd]
   );
 
-  // ============================================================
-  // 🖱 마우스 이벤트 (웹 테스트용)
-  // ============================================================
+  // ── 마우스 이벤트 ──
   const onMouseDown = useCallback(
     (e: React.MouseEvent, row: number, col: number) => {
       handleDragStart(e.clientX, e.clientY, row, col);
@@ -669,9 +616,7 @@ export default function GridShift() {
     [handleDragEnd]
   );
 
-  // ============================================================
-  // 🔄 게임 전체 리셋
-  // ============================================================
+  // ── 게임 리셋 ──
   const handleReset = () => {
     setGrid(createRandomGrid());
     setScore(0);
@@ -682,14 +627,13 @@ export default function GridShift() {
     setShowGameOver(false);
     setMovesLeft(MAX_SWIPES);
     gameOverTriggered.current = false;
-    console.log("[RESET] 게임 초기화 완료");
   };
 
   // ============================================================
-  // 🖼 메인 렌더링
+  // 🖼 렌더링
   // ============================================================
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden">
+    <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden">
 
       {/* ── 모달 레이어 ── */}
       <AnimatePresence>
@@ -713,9 +657,8 @@ export default function GridShift() {
         )}
       </AnimatePresence>
 
-      {/* ── 헤더: 점수 + 콤보 뱃지 + 버튼 ── */}
+      {/* ── 헤더 ── */}
       <div className="w-full max-w-sm px-4 mb-4 flex items-center justify-between">
-        {/* 점수 */}
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
           <AnimatePresence mode="popLayout">
@@ -730,7 +673,6 @@ export default function GridShift() {
           </AnimatePresence>
         </div>
 
-        {/* 콤보 뱃지 */}
         <AnimatePresence>
           {combo > 0 && (
             <motion.div
@@ -751,7 +693,6 @@ export default function GridShift() {
           )}
         </AnimatePresence>
 
-        {/* 버튼 그룹: 리더보드 + 리셋 */}
         <div className="flex gap-2">
           <motion.button
             whileTap={{ scale: 0.92 }}
@@ -842,7 +783,7 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
-          {/* ── 8x8 그리드 ── */}
+          {/* 8x8 그리드 */}
           <div
             className="grid gap-1 w-full h-full"
             style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}
