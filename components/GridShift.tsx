@@ -440,6 +440,7 @@ export default function GridShift() {
     [score, fetchLeaderboard]
   );
 
+  // 1. 상태에 의존하지 않는 애니메이션 함수들 우선 선언
   const triggerShake = useCallback(
     async (intensity: number) => {
       const amp = Math.min(intensity * 3, 15);
@@ -481,7 +482,16 @@ export default function GridShift() {
     }, 900);
   }, []);
 
-  // Recursively process blasts and return the number of bonus moves earned
+  // 2. 다른 함수를 래핑하지 않는 독립적인 상태 변경 함수 선언 (가장 핵심적인 TDZ 방지)
+  const handleDragStart = useCallback(
+    (x: number, y: number, row: number, col: number) => {
+      if (isAnimating || showGameOver || showTutorial) return;
+      dragStart.current = { x, y, row, col };
+    },
+    [isAnimating, showGameOver, showTutorial]
+  );
+
+  // 3. spawnParticles와 triggerShake를 사용하는 로직
   const runBlastCycle = useCallback(
     async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
       const blasted = find2x2Blasts(currentGrid);
@@ -537,7 +547,7 @@ export default function GridShift() {
     [spawnParticles, triggerShake]
   );
 
-  // Handle drag end and securely calculate remaining moves to prevent early game over
+  // 4. runBlastCycle을 사용하는 메인 로직
   const handleDragEnd = useCallback(
     async (endX: number, endY: number) => {
       if (!dragStart.current || isAnimating || showGameOver || showTutorial) return;
@@ -577,6 +587,7 @@ export default function GridShift() {
     [grid, isAnimating, showGameOver, showTutorial, movesLeft, runBlastCycle]
   );
 
+  // 5. handleDragStart와 handleDragEnd를 의존성으로 갖는 이벤트 핸들러들
   const onTouchStart = useCallback(
     (e: React.TouchEvent, row: number, col: number) => {
       const t = e.touches[0];
@@ -603,14 +614,6 @@ export default function GridShift() {
   const onMouseUp = useCallback(
     (e: React.MouseEvent) => handleDragEnd(e.clientX, e.clientY),
     [handleDragEnd]
-  );
-
-  const handleDragStart = useCallback(
-    (x: number, y: number, row: number, col: number) => {
-      if (isAnimating || showGameOver || showTutorial) return;
-      dragStart.current = { x, y, row, col };
-    },
-    [isAnimating, showGameOver, showTutorial]
   );
 
   const handleReset = () => {
