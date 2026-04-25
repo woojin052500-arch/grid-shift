@@ -10,6 +10,4 @@ html {
 body {
   overscroll-behavior: none;
   touch-action: none;
-  overflow: hidden;
-  height: 100dvh;
 }
