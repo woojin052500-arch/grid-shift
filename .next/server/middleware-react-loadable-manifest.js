@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST='{"app/page.tsx -> @/components/GridShift":{"id":6777,"files":["static/chunks/44530001.c73df95283626b46.js","static/chunks/178.15cbf39a0e13705e.js","static/chunks/777.602357fba00917d9.js"]}}';
+self.__REACT_LOADABLE_MANIFEST="{\"app/page.tsx -> @/components/GridShift\":{\"id\":\"app/page.tsx -> @/components/GridShift\",\"files\":[\"static/chunks/_app-pages-browser_components_GridShift_tsx.js\"]}}"

@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
-import Script from "next/script";
 import { getTopScores, submitScore, LeaderboardEntry } from "@/lib/supabase";
 
 const COLORS = ["red", "blue", "green", "yellow", "purple"] as const;
@@ -413,6 +412,12 @@ export default function GridShift() {
     if (hasSeenTutorial) {
       setShowTutorial(false);
     }
+
+    // Load Kakao AdFit script
+    const script = document.createElement('script');
+    script.src = '//t1.kakaocdn.net/kas/static/ba.min.js';
+    script.async = true;
+    document.body.appendChild(script);
   }, []);
 
   const closeTutorial = () => {
@@ -820,8 +825,6 @@ export default function GridShift() {
       <div className="mt-4 flex justify-center">
         <div dangerouslySetInnerHTML={{ __html: '<ins class="kakao_ad_area" style="display:none;" data-ad-unit="DAN-6sr6GmPDNHmT5BR1" data-ad-width="320" data-ad-height="50"></ins>' }} />
       </div>
-
-      <Script src="//t1.kakaocdn.net/kas/static/ba.min.js" strategy="afterInteractive" />
 
       <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">
         swipe to shift · match 2×2 to blast
