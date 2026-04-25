@@ -1,8 +1,8 @@
+"use client";
+
 import dynamic from "next/dynamic";
 
 // 서버 사이드 렌더링(SSR)을 비활성화하고 클라이언트에서만 게임을 로드합니다.
-// 이렇게 하면 Math.random() 이나 브라우저 전용 API로 인한 
-// Hydration 에러 및 초기화 순서 에러를 방지할 수 있습니다.
 const GridShiftGame = dynamic(() => import("@/components/GridShift"), {
   ssr: false,
   loading: () => (
