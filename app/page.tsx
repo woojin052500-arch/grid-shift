@@ -735,10 +735,14 @@ export default function GridShift() {
       </div>
 
       {/* ── 게임 보드 ── */}
-      <motion.div animate={shakeControls} className="w-full max-w-sm px-2">
+      <motion.div
+        animate={shakeControls}
+        style={{ width: "92vw", maxWidth: 420 }}
+      >
         <div
           ref={boardRef}
-          className="relative w-full aspect-square bg-gray-900 rounded-2xl p-2 shadow-2xl"
+          className="relative bg-gray-900 rounded-2xl p-2 shadow-2xl"
+          style={{ width: "92vw", height: "92vw", maxWidth: 420, maxHeight: 420 }}
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
