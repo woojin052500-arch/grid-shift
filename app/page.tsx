@@ -547,12 +547,8 @@ export default function GridShift() {
     gameOverTriggered.current = false;
   };
 
-  // ── 보드 크기: 92vw, 최대 420px ──
-  const BOARD_SIZE = "min(92vw, 420px)";
-
   return (
     <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden">
-
       <AnimatePresence>
         {showGameOver && (
           <GameOverModal
@@ -574,7 +570,7 @@ export default function GridShift() {
         )}
       </AnimatePresence>
 
-      {/* 헤더 */}
+      {/* 헤더 영역 */}
       <div className="w-full max-w-sm px-4 mb-4 flex items-center justify-between">
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
@@ -645,12 +641,14 @@ export default function GridShift() {
         </div>
       </div>
 
-      {/* 게임 보드 */}
-      <motion.div animate={shakeControls} style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
+      {/* 게임 보드 영역 (정사각형 비율 보장 및 모바일 터치 스크롤 방지) */}
+      <motion.div
+        animate={shakeControls}
+        className="w-[92vw] max-w-[420px] aspect-square"
+      >
         <div
           ref={boardRef}
-          className="relative bg-gray-900 rounded-2xl p-2 shadow-2xl"
-          style={{ width: BOARD_SIZE, height: BOARD_SIZE }}
+          className="relative w-full h-full bg-gray-900 rounded-2xl p-2 shadow-2xl touch-none"
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
@@ -672,7 +670,7 @@ export default function GridShift() {
           </div>
 
           {/* 스코어 팝업 */}
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 pointer-events-none z-20">
             <AnimatePresence>
               {scorePopups.map((popup) => (
                 <motion.div
@@ -690,15 +688,12 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
-          {/* ✅ 8×8 그리드: rows + cols 모두 명시 */}
+          {/* 8×8 그리드 메인 영역 */}
           <div
+            className="w-full h-full grid gap-1"
             style={{
-              display: "grid",
-              width: "100%",
-              height: "100%",
-              gap: "4px",
-              gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
-              gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+              gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
             }}
           >
             {grid.map((row, r) =>
