@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { getTopScores, submitScore, LeaderboardEntry } from "@/lib/supabase";
 
 const COLORS = ["red", "blue", "green", "yellow", "purple"] as const;
 type Color = (typeof COLORS)[number];
+
+// Block type with unique ID for layout animations
+type Block = {
+  id: string;
+  color: Color;
+};
 
 const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string }> = {
   red:    { bg: "bg-red-400",    shadow: "shadow-red-400/60",    particle: "#f87171" },
@@ -17,6 +23,11 @@ const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string
 
 const GRID_SIZE = 8;
 const MAX_SWIPES = 20;
+
+// Generate unique IDs for blocks
+function genId() {
+  return Math.random().toString(36).substr(2, 9) + Date.now();
+}
 
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "🌐";
@@ -37,13 +48,16 @@ function getCountryCode(): string {
   }
 }
 
-function createRandomGrid(): Color[][] {
+function createRandomGrid(): Block[][] {
   return Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => COLORS[Math.floor(Math.random() * COLORS.length)])
+    Array.from({ length: GRID_SIZE }, () => ({
+      id: genId(),
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    }))
   );
 }
 
-function shiftRow(grid: Color[][], rowIdx: number, dir: number): Color[][] {
+function shiftRow(grid: Block[][], rowIdx: number, dir: number): Block[][] {
   const newGrid = grid.map((row) => [...row]);
   const row = newGrid[rowIdx];
   if (dir === 1) {
@@ -57,7 +71,7 @@ function shiftRow(grid: Color[][], rowIdx: number, dir: number): Color[][] {
   return newGrid;
 }
 
-function shiftCol(grid: Color[][], colIdx: number, dir: number): Color[][] {
+function shiftCol(grid: Block[][], colIdx: number, dir: number): Block[][] {
   const newGrid = grid.map((row) => [...row]);
   const col = newGrid.map((row) => row[colIdx]);
   if (dir === 1) {
@@ -71,16 +85,16 @@ function shiftCol(grid: Color[][], colIdx: number, dir: number): Color[][] {
   return newGrid;
 }
 
-function find2x2Blasts(grid: Color[][]): Set<string> {
+function find2x2Blasts(grid: Block[][]): Set<string> {
   const toBlast = new Set<string>();
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
-      const color = grid[r][c];
+      const block = grid[r][c];
       if (
-        color &&
-        grid[r][c + 1] === color &&
-        grid[r + 1][c] === color &&
-        grid[r + 1][c + 1] === color
+        block &&
+        grid[r][c + 1]?.color === block.color &&
+        grid[r + 1][c]?.color === block.color &&
+        grid[r + 1][c + 1]?.color === block.color
       ) {
         toBlast.add(`${r},${c}`);
         toBlast.add(`${r},${c + 1}`);
@@ -92,25 +106,28 @@ function find2x2Blasts(grid: Color[][]): Set<string> {
   return toBlast;
 }
 
-type NullableGrid = (Color | null)[][];
+type NullableGrid = (Block | null)[][];
 
-function removeBlasted(grid: Color[][], blasted: Set<string>): NullableGrid {
+function removeBlasted(grid: Block[][], blasted: Set<string>): NullableGrid {
   return grid.map((row, r) =>
     row.map((cell, c) => (blasted.has(`${r},${c}`) ? null : cell))
   );
 }
 
-function applyGravity(grid: NullableGrid): Color[][] {
-  const newGrid: Color[][] = Array.from({ length: GRID_SIZE }, () =>
+function applyGravity(grid: NullableGrid): Block[][] {
+  const newGrid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
     Array(GRID_SIZE).fill(null)
   );
   for (let c = 0; c < GRID_SIZE; c++) {
-    const col: Color[] = [];
+    const col: Block[] = [];
     for (let r = 0; r < GRID_SIZE; r++) {
-      if (grid[r][c] !== null) col.push(grid[r][c] as Color);
+      if (grid[r][c] !== null) col.push(grid[r][c] as Block);
     }
     while (col.length < GRID_SIZE) {
-      col.unshift(COLORS[Math.floor(Math.random() * COLORS.length)]);
+      col.unshift({
+        id: genId(),
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      });
     }
     for (let r = 0; r < GRID_SIZE; r++) {
       newGrid[r][c] = col[r];
@@ -128,15 +145,55 @@ interface Particle {
   vy: number;
 }
 
-function LeaderboardModal({
-  onClose,
-  entries,
-  isLoading,
-}: {
-  onClose: () => void;
-  entries: LeaderboardEntry[];
-  isLoading: boolean;
-}) {
+function TutorialModal({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.85, y: 40, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.85, y: 40, opacity: 0 }}
+        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-center mb-6">
+          <h2 className="text-white text-2xl font-black tracking-tight mb-2">How to Play 🎮</h2>
+          <p className="text-gray-400 text-sm">Master the Grid Shift!</p>
+        </div>
+        
+        <div className="space-y-4 mb-8">
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="text-3xl">👆</div>
+            <p className="text-sm text-gray-300"><span className="text-white font-bold">Swipe</span> rows or columns to shift the entire line.</p>
+          </div>
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="text-3xl">🧊</div>
+            <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to blast them.</p>
+          </div>
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="text-3xl">📉</div>
+            <p className="text-sm text-gray-300">Watch your <span className="text-red-400 font-bold">Moves limit</span>. Make every swipe count!</p>
+          </div>
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={onClose}
+          className="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase bg-blue-500 text-white hover:bg-blue-400 transition-colors shadow-lg shadow-blue-500/30"
+        >
+          Let's Go!
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function LeaderboardModal({ onClose, entries, isLoading }: any) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -174,13 +231,13 @@ function LeaderboardModal({
               className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full"
             />
           </div>
-        ) : entries.length === 0 ? (
+        ) : entries?.length === 0 ? (
           <div className="text-center py-12 text-gray-600 font-mono text-sm">
             No scores yet. Be the first! 🚀
           </div>
         ) : (
           <div className="space-y-2">
-            {entries.map((entry, idx) => {
+            {entries?.map((entry: any, idx: number) => {
               const rankIcons = ["🥇", "🥈", "🥉"];
               const rankLabel = idx < 3 ? rankIcons[idx] : `#${idx + 1}`;
               const isFirst = idx === 0;
@@ -212,17 +269,7 @@ function LeaderboardModal({
   );
 }
 
-function GameOverModal({
-  score,
-  onSubmit,
-  onClose,
-  onViewLeaderboard,
-}: {
-  score: number;
-  onSubmit: (name: string) => Promise<void>;
-  onClose: () => void;
-  onViewLeaderboard: () => void;
-}) {
+function GameOverModal({ score, onSubmit, onClose, onViewLeaderboard }: any) {
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -339,7 +386,7 @@ function GameOverModal({
 }
 
 export default function GridShift() {
-  const [grid, setGrid] = useState<Color[][]>(createRandomGrid);
+  const [grid, setGrid] = useState<Block[][]>(createRandomGrid);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -347,8 +394,11 @@ export default function GridShift() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number }[]>([]);
   const [movesLeft, setMovesLeft] = useState(MAX_SWIPES);
+  
   const [showGameOver, setShowGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(true);
+  
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
 
@@ -356,6 +406,18 @@ export default function GridShift() {
   const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
+
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
+    if (hasSeenTutorial) {
+      setShowTutorial(false);
+    }
+  }, []);
+
+  const closeTutorial = () => {
+    localStorage.setItem("gridShift_tutorial", "true");
+    setShowTutorial(false);
+  };
 
   const fetchLeaderboard = useCallback(async () => {
     setIsLoadingBoard(true);
@@ -390,15 +452,15 @@ export default function GridShift() {
     [shakeControls]
   );
 
-  const spawnParticles = useCallback((cellKeys: string[], currentGrid: Color[][]) => {
+  const spawnParticles = useCallback((cellKeys: string[], currentGrid: Block[][]) => {
     if (!boardRef.current) return;
     const boardRect = boardRef.current.getBoundingClientRect();
     const cellSize = boardRect.width / GRID_SIZE;
     const newParticles: Particle[] = [];
     cellKeys.forEach((key) => {
       const [r, c] = key.split(",").map(Number);
-      const color = currentGrid[r]?.[c];
-      if (!color) return;
+      const block = currentGrid[r]?.[c];
+      if (!block) return;
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
       for (let i = 0; i < 6; i++) {
@@ -407,7 +469,7 @@ export default function GridShift() {
         newParticles.push({
           id: `${key}-${i}-${Date.now()}`,
           x: cx, y: cy,
-          color: COLOR_STYLES[color].particle,
+          color: COLOR_STYLES[block.color].particle,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
         });
@@ -419,13 +481,21 @@ export default function GridShift() {
     }, 900);
   }, []);
 
+  // Recursively process blasts and return the number of bonus moves earned
   const runBlastCycle = useCallback(
-    async (currentGrid: Color[][], currentCombo: number) => {
+    async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
       const blasted = find2x2Blasts(currentGrid);
       if (blasted.size === 0) {
         setCombo(currentCombo);
         setIsAnimating(false);
-        return;
+        return 0; // No match
+      }
+
+      // Add +2 bonus moves only on the first match of the current swipe
+      let bonusMoves = 0;
+      if (currentCombo === 0) {
+        setMovesLeft((prev) => prev + 2);
+        bonusMoves = 2;
       }
 
       spawnParticles([...blasted], currentGrid);
@@ -439,10 +509,12 @@ export default function GridShift() {
         const cellSize = boardRect.width / GRID_SIZE;
         const firstCell = [...blasted][0].split(",").map(Number);
         const popupId = `popup-${Date.now()}-${Math.random()}`;
+        
         setScorePopups((prev) => [
           ...prev,
           { id: popupId, value: earnedScore, x: firstCell[1] * cellSize + cellSize / 2, y: firstCell[0] * cellSize },
         ]);
+        
         setTimeout(() => {
           setScorePopups((prev) => prev.filter((p) => p.id !== popupId));
         }, 800);
@@ -457,23 +529,18 @@ export default function GridShift() {
       const afterGravity = applyGravity(afterRemove);
       setGrid(afterGravity);
 
-      await new Promise((res) => setTimeout(res, 300));
-      runBlastCycle(afterGravity, currentCombo + 1);
+      await new Promise((res) => setTimeout(res, 350)); 
+      
+      const nextBonusMoves = await runBlastCycle(afterGravity, currentCombo + 1);
+      return bonusMoves + nextBonusMoves;
     },
     [spawnParticles, triggerShake]
   );
 
-  const handleDragStart = useCallback(
-    (x: number, y: number, row: number, col: number) => {
-      if (isAnimating || showGameOver) return;
-      dragStart.current = { x, y, row, col };
-    },
-    [isAnimating, showGameOver]
-  );
-
+  // Handle drag end and securely calculate remaining moves to prevent early game over
   const handleDragEnd = useCallback(
     async (endX: number, endY: number) => {
-      if (!dragStart.current || isAnimating || showGameOver) return;
+      if (!dragStart.current || isAnimating || showGameOver || showTutorial) return;
       const { x, y, row, col } = dragStart.current;
       dragStart.current = null;
 
@@ -488,7 +555,7 @@ export default function GridShift() {
       setIsAnimating(true);
       setCombo(0);
 
-      let newGrid: Color[][];
+      let newGrid: Block[][];
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
         newGrid = shiftRow(grid, row, deltaX > 0 ? 1 : -1);
       } else {
@@ -496,15 +563,18 @@ export default function GridShift() {
       }
 
       setGrid(newGrid);
-      await new Promise((res) => setTimeout(res, 200));
-      await runBlastCycle(newGrid, 0);
+      await new Promise((res) => setTimeout(res, 300)); 
+      
+      const bonusMovesEarned = await runBlastCycle(newGrid, 0);
+      
+      const finalMovesLeft = newMovesLeft + bonusMovesEarned;
 
-      if (newMovesLeft <= 0 && !gameOverTriggered.current) {
+      if (finalMovesLeft <= 0 && !gameOverTriggered.current) {
         gameOverTriggered.current = true;
         setShowGameOver(true);
       }
     },
-    [grid, isAnimating, showGameOver, movesLeft, runBlastCycle]
+    [grid, isAnimating, showGameOver, showTutorial, movesLeft, runBlastCycle]
   );
 
   const onTouchStart = useCallback(
@@ -535,6 +605,14 @@ export default function GridShift() {
     [handleDragEnd]
   );
 
+  const handleDragStart = useCallback(
+    (x: number, y: number, row: number, col: number) => {
+      if (isAnimating || showGameOver || showTutorial) return;
+      dragStart.current = { x, y, row, col };
+    },
+    [isAnimating, showGameOver, showTutorial]
+  );
+
   const handleReset = () => {
     setGrid(createRandomGrid());
     setScore(0);
@@ -549,6 +627,11 @@ export default function GridShift() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden">
+      
+      <AnimatePresence>
+        {showTutorial && <TutorialModal onClose={closeTutorial} />}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showGameOver && (
           <GameOverModal
@@ -570,7 +653,6 @@ export default function GridShift() {
         )}
       </AnimatePresence>
 
-      {/* 헤더 영역 */}
       <div className="w-full max-w-sm px-4 mb-4 flex items-center justify-between">
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
@@ -609,6 +691,13 @@ export default function GridShift() {
         <div className="flex gap-2">
           <motion.button
             whileTap={{ scale: 0.92 }}
+            onClick={() => setShowTutorial(true)}
+            className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg hover:bg-gray-700 transition-colors"
+          >
+            ❓
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.92 }}
             onClick={handleOpenLeaderboard}
             className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg hover:bg-gray-700 transition-colors"
           >
@@ -624,7 +713,6 @@ export default function GridShift() {
         </div>
       </div>
 
-      {/* 이동 횟수 바 */}
       <div className="w-full max-w-sm px-4 mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-600 text-xs font-mono uppercase tracking-widest">Moves</span>
@@ -641,7 +729,6 @@ export default function GridShift() {
         </div>
       </div>
 
-      {/* 게임 보드 영역 (정사각형 비율 보장 및 모바일 터치 스크롤 방지) */}
       <motion.div
         animate={shakeControls}
         className="w-[92vw] max-w-[420px] aspect-square"
@@ -652,8 +739,7 @@ export default function GridShift() {
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
-          {/* 파티클 레이어 */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-30">
             <AnimatePresence>
               {particles.map((p) => (
                 <motion.div
@@ -669,8 +755,7 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
-          {/* 스코어 팝업 */}
-          <div className="absolute inset-0 pointer-events-none z-20">
+          <div className="absolute inset-0 pointer-events-none z-40">
             <AnimatePresence>
               {scorePopups.map((popup) => (
                 <motion.div
@@ -688,33 +773,34 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
-          {/* 8×8 그리드 메인 영역 */}
           <div
-            className="w-full h-full grid gap-1"
+            className="w-full h-full grid gap-1 relative"
             style={{
               gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
             }}
           >
             {grid.map((row, r) =>
-              row.map((color, c) => {
+              row.map((block, c) => {
                 const cellKey = `${r},${c}`;
                 const isBlasting = blastingCells.has(cellKey);
-                const style = COLOR_STYLES[color];
+                const style = COLOR_STYLES[block.color];
 
                 return (
                   <motion.div
-                    key={`${r}-${c}`}
+                    layout
+                    key={block.id}
+                    initial={false}
                     animate={
                       isBlasting
                         ? { scale: [1, 1.3, 0], opacity: [1, 1, 0] }
                         : { scale: 1, opacity: 1 }
                     }
-                    transition={
-                      isBlasting
-                        ? { duration: 0.3, ease: "easeIn" }
-                        : { duration: 0.15 }
-                    }
+                    transition={{
+                      layout: { type: "spring", stiffness: 300, damping: 30 },
+                      scale: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 },
+                      opacity: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 }
+                    }}
                     className={`rounded-md cursor-pointer ${style.bg} shadow-md ${style.shadow} ${isBlasting ? "z-10" : ""}`}
                     onMouseDown={(e) => onMouseDown(e, r, c)}
                     onTouchStart={(e) => onTouchStart(e, r, c)}
