@@ -1,3 +1,5 @@
+import './globals.css'   // ← 이게 빠져 있어서 Tailwind가 안 로드됨
+
 export const metadata = {
   title: 'Grid Shift',
   description: 'Swipe, Blast, and Combo!',
