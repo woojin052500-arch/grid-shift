@@ -633,10 +633,7 @@ export default function GridShift() {
   // 🖼 렌더링
   // ============================================================
   return (
-    <div
-      className="bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden"
-      style={{ minHeight: "calc(var(--vh, 1vh) * 100)" }}
-    >
+    <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden">
 
       {/* ── 모달 레이어 ── */}
       <AnimatePresence>
