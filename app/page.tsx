@@ -551,7 +551,7 @@ export default function GridShift() {
   const BOARD_SIZE = "min(92vw, 420px)";
 
   return (
-    <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden">
+    <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden">
 
       <AnimatePresence>
         {showGameOver && (
