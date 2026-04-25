@@ -1,17 +1,9 @@
 "use client";
 
-// ============================================================
-// Grid Shift - 마일스톤 2: Supabase 글로벌 리더보드 통합
-// app/page.tsx 에 배치하세요.
-// ============================================================
-
 import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { getTopScores, submitScore, LeaderboardEntry } from "@/lib/supabase";
 
-// ============================================================
-// 🎨 상수 정의: 색상 팔레트
-// ============================================================
 const COLORS = ["red", "blue", "green", "yellow", "purple"] as const;
 type Color = (typeof COLORS)[number];
 
@@ -26,9 +18,6 @@ const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string
 const GRID_SIZE = 8;
 const MAX_SWIPES = 20;
 
-// ============================================================
-// 🛠 유틸: 국가 코드 → 이모지 플래그
-// ============================================================
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "🌐";
   return code
@@ -38,9 +27,6 @@ function countryFlag(code: string): string {
     .join("");
 }
 
-// ============================================================
-// 🛠 유틸: 브라우저 로케일에서 국가 코드 추출
-// ============================================================
 function getCountryCode(): string {
   try {
     const locale = navigator.language || "en-US";
@@ -51,18 +37,12 @@ function getCountryCode(): string {
   }
 }
 
-// ============================================================
-// 🛠 게임 유틸: 랜덤 그리드 생성
-// ============================================================
 function createRandomGrid(): Color[][] {
   return Array.from({ length: GRID_SIZE }, () =>
     Array.from({ length: GRID_SIZE }, () => COLORS[Math.floor(Math.random() * COLORS.length)])
   );
 }
 
-// ============================================================
-// 🛠 유틸: 가로줄 무한 시프트 (dir: 1=오른쪽, -1=왼쪽)
-// ============================================================
 function shiftRow(grid: Color[][], rowIdx: number, dir: number): Color[][] {
   const newGrid = grid.map((row) => [...row]);
   const row = newGrid[rowIdx];
@@ -74,13 +54,9 @@ function shiftRow(grid: Color[][], rowIdx: number, dir: number): Color[][] {
     row.push(first);
   }
   newGrid[rowIdx] = row;
-  console.log(`[SHIFT] Row ${rowIdx} → ${dir === 1 ? "RIGHT" : "LEFT"}`);
   return newGrid;
 }
 
-// ============================================================
-// 🛠 유틸: 세로줄 무한 시프트 (dir: 1=아래, -1=위)
-// ============================================================
 function shiftCol(grid: Color[][], colIdx: number, dir: number): Color[][] {
   const newGrid = grid.map((row) => [...row]);
   const col = newGrid.map((row) => row[colIdx]);
@@ -92,13 +68,9 @@ function shiftCol(grid: Color[][], colIdx: number, dir: number): Color[][] {
     col.push(first);
   }
   col.forEach((val, i) => { newGrid[i][colIdx] = val; });
-  console.log(`[SHIFT] Col ${colIdx} → ${dir === 1 ? "DOWN" : "UP"}`);
   return newGrid;
 }
 
-// ============================================================
-// 🛠 유틸: 2x2 블록 검사 → 터질 셀 좌표 Set 반환
-// ============================================================
 function find2x2Blasts(grid: Color[][]): Set<string> {
   const toBlast = new Set<string>();
   for (let r = 0; r < GRID_SIZE - 1; r++) {
@@ -117,13 +89,9 @@ function find2x2Blasts(grid: Color[][]): Set<string> {
       }
     }
   }
-  console.log(`[BLAST] 터질 셀 ${toBlast.size}개 발견`);
   return toBlast;
 }
 
-// ============================================================
-// 🛠 유틸: 터진 셀을 null로 표시
-// ============================================================
 type NullableGrid = (Color | null)[][];
 
 function removeBlasted(grid: Color[][], blasted: Set<string>): NullableGrid {
@@ -132,9 +100,6 @@ function removeBlasted(grid: Color[][], blasted: Set<string>): NullableGrid {
   );
 }
 
-// ============================================================
-// 🛠 유틸: 중력 적용 → null(빈칸)을 위로 모으고 위에서 새 블록 채움
-// ============================================================
 function applyGravity(grid: NullableGrid): Color[][] {
   const newGrid: Color[][] = Array.from({ length: GRID_SIZE }, () =>
     Array(GRID_SIZE).fill(null)
@@ -151,13 +116,9 @@ function applyGravity(grid: NullableGrid): Color[][] {
       newGrid[r][c] = col[r];
     }
   }
-  console.log("[GRAVITY] 중력 적용 완료, 새 블록 보충됨");
   return newGrid;
 }
 
-// ============================================================
-// 🎆 파티클 타입 정의
-// ============================================================
 interface Particle {
   id: string;
   x: number;
@@ -167,9 +128,6 @@ interface Particle {
   vy: number;
 }
 
-// ============================================================
-// 🏆 서브 컴포넌트: 리더보드 모달
-// ============================================================
 function LeaderboardModal({
   onClose,
   entries,
@@ -195,7 +153,6 @@ function LeaderboardModal({
         className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 모달 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-white text-xl font-black tracking-tight">🏆 Global Board</h2>
@@ -209,7 +166,6 @@ function LeaderboardModal({
           </button>
         </div>
 
-        {/* 리더보드 리스트 */}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <motion.div
@@ -228,27 +184,21 @@ function LeaderboardModal({
               const rankIcons = ["🥇", "🥈", "🥉"];
               const rankLabel = idx < 3 ? rankIcons[idx] : `#${idx + 1}`;
               const isFirst = idx === 0;
-
               return (
                 <motion.div
                   key={entry.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.06 }}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-xl
-                    ${isFirst
-                      ? "bg-yellow-400/10 border border-yellow-400/30"
-                      : "bg-gray-800/60"}
-                  `}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
+                    isFirst ? "bg-yellow-400/10 border border-yellow-400/30" : "bg-gray-800/60"
+                  }`}
                 >
                   <span className={`text-lg w-8 text-center ${isFirst ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-gray-500"}`}>
                     {rankLabel}
                   </span>
                   <span className="text-lg">{countryFlag(entry.country_code)}</span>
-                  <span className="flex-1 text-white font-bold text-sm truncate">
-                    {entry.player_name}
-                  </span>
+                  <span className="flex-1 text-white font-bold text-sm truncate">{entry.player_name}</span>
                   <span className={`font-black tabular-nums text-sm ${isFirst ? "text-yellow-400" : "text-gray-300"}`}>
                     {entry.score.toLocaleString()}
                   </span>
@@ -262,9 +212,6 @@ function LeaderboardModal({
   );
 }
 
-// ============================================================
-// 💀 서브 컴포넌트: 게임 오버 모달
-// ============================================================
 function GameOverModal({
   score,
   onSubmit,
@@ -283,7 +230,6 @@ function GameOverModal({
   const handleSubmit = async () => {
     if (!name.trim() || isSubmitting || submitted) return;
     setIsSubmitting(true);
-    console.log("[GAME OVER] 점수 제출 시도:", { name: name.trim(), score });
     await onSubmit(name.trim());
     setIsSubmitting(false);
     setSubmitted(true);
@@ -340,14 +286,11 @@ function GameOverModal({
                 {name.length}/12
               </span>
             </div>
-
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={handleSubmit}
               disabled={!name.trim() || isSubmitting}
-              className="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase
-                bg-yellow-400 text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed
-                hover:bg-yellow-300 transition-colors"
+              className="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase bg-yellow-400 text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-yellow-300 transition-colors"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -395,9 +338,6 @@ function GameOverModal({
   );
 }
 
-// ============================================================
-// 🎮 메인 게임 컴포넌트
-// ============================================================
 export default function GridShift() {
   const [grid, setGrid] = useState<Color[][]>(createRandomGrid);
   const [score, setScore] = useState(0);
@@ -407,7 +347,6 @@ export default function GridShift() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number }[]>([]);
   const [movesLeft, setMovesLeft] = useState(MAX_SWIPES);
-
   const [showGameOver, setShowGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
@@ -418,7 +357,6 @@ export default function GridShift() {
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
 
-  // ── 리더보드 패치 ──
   const fetchLeaderboard = useCallback(async () => {
     setIsLoadingBoard(true);
     const entries = await getTopScores();
@@ -431,7 +369,6 @@ export default function GridShift() {
     await fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  // ── 점수 제출 ──
   const handleSubmitScore = useCallback(
     async (playerName: string) => {
       const countryCode = getCountryCode();
@@ -441,7 +378,6 @@ export default function GridShift() {
     [score, fetchLeaderboard]
   );
 
-  // ── 화면 흔들기 ──
   const triggerShake = useCallback(
     async (intensity: number) => {
       const amp = Math.min(intensity * 3, 15);
@@ -454,12 +390,10 @@ export default function GridShift() {
     [shakeControls]
   );
 
-  // ── 파티클 생성 ──
   const spawnParticles = useCallback((cellKeys: string[], currentGrid: Color[][]) => {
     if (!boardRef.current) return;
     const boardRect = boardRef.current.getBoundingClientRect();
     const cellSize = boardRect.width / GRID_SIZE;
-
     const newParticles: Particle[] = [];
     cellKeys.forEach((key) => {
       const [r, c] = key.split(",").map(Number);
@@ -481,17 +415,13 @@ export default function GridShift() {
     });
     setParticles((prev) => [...prev, ...newParticles]);
     setTimeout(() => {
-      setParticles((prev) =>
-        prev.filter((p) => !newParticles.find((np) => np.id === p.id))
-      );
+      setParticles((prev) => prev.filter((p) => !newParticles.find((np) => np.id === p.id)));
     }, 900);
   }, []);
 
-  // ── 폭발 → 중력 → 재검사 콤보 사이클 ──
   const runBlastCycle = useCallback(
     async (currentGrid: Color[][], currentCombo: number) => {
       const blasted = find2x2Blasts(currentGrid);
-
       if (blasted.size === 0) {
         setCombo(currentCombo);
         setIsAnimating(false);
@@ -511,12 +441,7 @@ export default function GridShift() {
         const popupId = `popup-${Date.now()}-${Math.random()}`;
         setScorePopups((prev) => [
           ...prev,
-          {
-            id: popupId,
-            value: earnedScore,
-            x: firstCell[1] * cellSize + cellSize / 2,
-            y: firstCell[0] * cellSize,
-          },
+          { id: popupId, value: earnedScore, x: firstCell[1] * cellSize + cellSize / 2, y: firstCell[0] * cellSize },
         ]);
         setTimeout(() => {
           setScorePopups((prev) => prev.filter((p) => p.id !== popupId));
@@ -538,7 +463,6 @@ export default function GridShift() {
     [spawnParticles, triggerShake]
   );
 
-  // ── 드래그 시작 ──
   const handleDragStart = useCallback(
     (x: number, y: number, row: number, col: number) => {
       if (isAnimating || showGameOver) return;
@@ -547,7 +471,6 @@ export default function GridShift() {
     [isAnimating, showGameOver]
   );
 
-  // ── 드래그 종료 → 시프트 → 폭발 사이클 ──
   const handleDragEnd = useCallback(
     async (endX: number, endY: number) => {
       if (!dragStart.current || isAnimating || showGameOver) return;
@@ -562,7 +485,6 @@ export default function GridShift() {
 
       const newMovesLeft = movesLeft - 1;
       setMovesLeft(newMovesLeft);
-
       setIsAnimating(true);
       setCombo(0);
 
@@ -574,7 +496,6 @@ export default function GridShift() {
       }
 
       setGrid(newGrid);
-
       await new Promise((res) => setTimeout(res, 200));
       await runBlastCycle(newGrid, 0);
 
@@ -586,7 +507,6 @@ export default function GridShift() {
     [grid, isAnimating, showGameOver, movesLeft, runBlastCycle]
   );
 
-  // ── 터치 이벤트 ──
   const onTouchStart = useCallback(
     (e: React.TouchEvent, row: number, col: number) => {
       const t = e.touches[0];
@@ -603,7 +523,6 @@ export default function GridShift() {
     [handleDragEnd]
   );
 
-  // ── 마우스 이벤트 ──
   const onMouseDown = useCallback(
     (e: React.MouseEvent, row: number, col: number) => {
       handleDragStart(e.clientX, e.clientY, row, col);
@@ -616,7 +535,6 @@ export default function GridShift() {
     [handleDragEnd]
   );
 
-  // ── 게임 리셋 ──
   const handleReset = () => {
     setGrid(createRandomGrid());
     setScore(0);
@@ -629,13 +547,12 @@ export default function GridShift() {
     gameOverTriggered.current = false;
   };
 
-  // ============================================================
-  // 🖼 렌더링
-  // ============================================================
+  // ── 보드 크기: 92vw, 최대 420px ──
+  const BOARD_SIZE = "min(92vw, 420px)";
+
   return (
     <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-center select-none overflow-hidden">
 
-      {/* ── 모달 레이어 ── */}
       <AnimatePresence>
         {showGameOver && (
           <GameOverModal
@@ -657,7 +574,7 @@ export default function GridShift() {
         )}
       </AnimatePresence>
 
-      {/* ── 헤더 ── */}
+      {/* 헤더 */}
       <div className="w-full max-w-sm px-4 mb-4 flex items-center justify-between">
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
@@ -698,7 +615,6 @@ export default function GridShift() {
             whileTap={{ scale: 0.92 }}
             onClick={handleOpenLeaderboard}
             className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-lg hover:bg-gray-700 transition-colors"
-            title="Global Leaderboard"
           >
             🏆
           </motion.button>
@@ -706,14 +622,13 @@ export default function GridShift() {
             whileTap={{ scale: 0.92 }}
             onClick={handleReset}
             className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-            title="Reset"
           >
             ↺
           </motion.button>
         </div>
       </div>
 
-      {/* ── 이동 횟수 프로그레스 바 ── */}
+      {/* 이동 횟수 바 */}
       <div className="w-full max-w-sm px-4 mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-600 text-xs font-mono uppercase tracking-widest">Moves</span>
@@ -724,25 +639,18 @@ export default function GridShift() {
             animate={{ width: `${(movesLeft / MAX_SWIPES) * 100}%` }}
             transition={{ duration: 0.3 }}
             className={`h-full rounded-full transition-colors ${
-              movesLeft > 12
-                ? "bg-green-400"
-                : movesLeft > 6
-                ? "bg-yellow-400"
-                : "bg-red-400"
+              movesLeft > 12 ? "bg-green-400" : movesLeft > 6 ? "bg-yellow-400" : "bg-red-400"
             }`}
           />
         </div>
       </div>
 
-      {/* ── 게임 보드 ── */}
-      <motion.div
-        animate={shakeControls}
-        style={{ width: "92vw", maxWidth: 420 }}
-      >
+      {/* 게임 보드 */}
+      <motion.div animate={shakeControls} style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
         <div
           ref={boardRef}
           className="relative bg-gray-900 rounded-2xl p-2 shadow-2xl"
-          style={{ width: "92vw", height: "92vw", maxWidth: 420, maxHeight: 420 }}
+          style={{ width: BOARD_SIZE, height: BOARD_SIZE }}
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
@@ -757,18 +665,13 @@ export default function GridShift() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   className="absolute w-3 h-3 rounded-full"
-                  style={{
-                    backgroundColor: p.color,
-                    left: 0,
-                    top: 0,
-                    transform: "translate(-50%, -50%)",
-                  }}
+                  style={{ backgroundColor: p.color, left: 0, top: 0, transform: "translate(-50%, -50%)" }}
                 />
               ))}
             </AnimatePresence>
           </div>
 
-          {/* 스코어 팝업 레이어 */}
+          {/* 스코어 팝업 */}
           <div className="absolute inset-0 pointer-events-none">
             <AnimatePresence>
               {scorePopups.map((popup) => (
@@ -787,10 +690,16 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
-          {/* 8x8 그리드 */}
+          {/* ✅ 8×8 그리드: rows + cols 모두 명시 */}
           <div
-            className="grid gap-1 w-full h-full"
-            style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)` }}
+            style={{
+              display: "grid",
+              width: "100%",
+              height: "100%",
+              gap: "4px",
+              gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
+              gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+            }}
           >
             {grid.map((row, r) =>
               row.map((color, c) => {
@@ -811,11 +720,7 @@ export default function GridShift() {
                         ? { duration: 0.3, ease: "easeIn" }
                         : { duration: 0.15 }
                     }
-                    className={`
-                      rounded-md cursor-pointer
-                      ${style.bg} shadow-md ${style.shadow}
-                      ${isBlasting ? "z-10" : ""}
-                    `}
+                    className={`rounded-md cursor-pointer ${style.bg} shadow-md ${style.shadow} ${isBlasting ? "z-10" : ""}`}
                     onMouseDown={(e) => onMouseDown(e, r, c)}
                     onTouchStart={(e) => onTouchStart(e, r, c)}
                     onTouchEnd={onTouchEnd}
@@ -827,7 +732,6 @@ export default function GridShift() {
         </div>
       </motion.div>
 
-      {/* ── 하단 힌트 ── */}
       <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">
         swipe to shift · match 2×2 to blast
       </p>
