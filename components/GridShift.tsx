@@ -406,18 +406,27 @@ export default function GridShift() {
   const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
+  const adRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
-    if (hasSeenTutorial) {
-      setShowTutorial(false);
-    }
+    if (hasSeenTutorial) setShowTutorial(false);
 
-    // Load Kakao AdFit script
-    const script = document.createElement('script');
-    script.src = '//t1.kakaocdn.net/kas/static/ba.min.js';
-    script.async = true;
-    document.body.appendChild(script);
+    // Kakao AdFit
+    if (adRef.current && adRef.current.childElementCount === 0) {
+      const ins = document.createElement("ins");
+      ins.className = "kakao_ad_area";
+      ins.style.display = "none";
+      ins.setAttribute("data-ad-unit", "DAN-6sr6GmPDNHmT5BR1");
+      ins.setAttribute("data-ad-width", "320");
+      ins.setAttribute("data-ad-height", "50");
+      adRef.current.appendChild(ins);
+
+      const script = document.createElement("script");
+      script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, []);
 
   const closeTutorial = () => {
@@ -822,9 +831,8 @@ export default function GridShift() {
         </div>
       </motion.div>
 
-      <div className="mt-4 flex justify-center">
-        <div dangerouslySetInnerHTML={{ __html: '<ins class="kakao_ad_area" style="display:none;" data-ad-unit="DAN-6sr6GmPDNHmT5BR1" data-ad-width="320" data-ad-height="50"></ins>' }} />
-      </div>
+      {/* 게임 그리드 motion.div 바로 아래 */}
+      <div ref={adRef} className="mt-4 flex justify-center min-h-[50px]" />
 
       <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">
         swipe to shift · match 2×2 to blast
