@@ -1,0 +1,15 @@
+/* app/globals.css */
+/* Tailwind CSS 기본 디렉티브 — 이 파일이 없으면 스타일이 전혀 적용되지 않습니다. */
+/* your-next-app/app/globals.css 에 배치하세요. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 모바일 터치 스크롤 방지 (게임 중 페이지 튀는 현상 제거) */
+html, body {
+  overscroll-behavior: none;
+  touch-action: none;
+  overflow: hidden;
+  height: 100%;
+}
