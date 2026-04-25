@@ -413,20 +413,27 @@ export default function GridShift() {
     if (hasSeenTutorial) setShowTutorial(false);
 
     // Kakao AdFit
-    if (adRef.current && adRef.current.childElementCount === 0) {
-      const ins = document.createElement("ins");
-      ins.className = "kakao_ad_area";
-      ins.style.display = "none";
-      ins.setAttribute("data-ad-unit", "DAN-6sr6GmPDNHmT5BR1");
-      ins.setAttribute("data-ad-width", "320");
-      ins.setAttribute("data-ad-height", "50");
-      adRef.current.appendChild(ins);
+    if (!adRef.current || adRef.current.childElementCount > 0) return;
 
-      const script = document.createElement("script");
-      script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
-      script.async = true;
-      document.body.appendChild(script);
+    const ins = document.createElement("ins");
+    ins.className = "kakao_ad_area";
+    ins.style.display = "none";
+    ins.setAttribute("data-ad-unit", "DAN-6sr6GmPDNHmT5BR1");
+    ins.setAttribute("data-ad-width", "320");
+    ins.setAttribute("data-ad-height", "50");
+    adRef.current.appendChild(ins);
+
+    // 스크립트가 이미 로드된 경우 → load() 직접 호출
+    if ((window as any).kakaoAdFit) {
+      (window as any).kakaoAdFit.load();
+      return;
     }
+
+    // 최초 로드
+    const script = document.createElement("script");
+    script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
+    script.async = true;
+    document.body.appendChild(script);
   }, []);
 
   const closeTutorial = () => {
