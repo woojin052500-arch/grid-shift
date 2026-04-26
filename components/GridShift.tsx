@@ -49,28 +49,6 @@ function getCountryCode(): string {
   }
 }
 
-function createRandomGrid(): Block[][] {
-  const grid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
-    Array(GRID_SIZE).fill(null) as unknown as Block[]
-  );
-
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
-      let block: Block;
-      do {
-        block = {
-          id: genId(),
-          color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          type: 'normal',
-        };
-      } while (createsImmediateMatch(grid, r, c, block));
-      grid[r][c] = block;
-    }
-  }
-
-  return grid;
-}
-
 function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Block): boolean {
   const isMatchable = (cell: Block | null) =>
     !!cell && (cell.type === 'normal' || cell.type === 'rainbow' || cell.type === 'bomb');
@@ -102,6 +80,28 @@ function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Blo
   if (r < GRID_SIZE - 1 && c < GRID_SIZE - 1 && checkSquare(r, c)) return true;
 
   return false;
+}
+
+function createRandomGrid(): Block[][] {
+  const grid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
+    Array(GRID_SIZE).fill(null) as unknown as Block[]
+  );
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      let block: Block;
+      do {
+        block = {
+          id: genId(),
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          type: 'normal',
+        };
+      } while (createsImmediateMatch(grid, r, c, block));
+      grid[r][c] = block;
+    }
+  }
+
+  return grid;
 }
 
 function shiftRow(grid: Block[][], rowIdx: number, dir: number): Block[][] {
@@ -191,6 +191,51 @@ function findBlasts(grid: Block[][]): Set<string> {
   return toBlast;
 }
 
+// 스와이프 한 번으로 2×2 매치가 만들어질 위치를 탐색
+function findTutorialSwipeTarget(grid: Block[][]): {
+  highlight: { row: number; col: number };
+  swipeDir: 'left' | 'right' | 'up' | 'down';
+  swipeIndex: number;
+} | null {
+  // 행 스와이프 테스트
+  for (const dir of [1, -1] as const) {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      const shifted = shiftRow(grid, r, dir);
+      const blasted = findBlasts(shifted);
+      if (blasted.size > 0) {
+        const firstKey = [...blasted][0];
+        const [br, bc] = firstKey.split(',').map(Number);
+        const hr = Math.max(0, Math.min(br, GRID_SIZE - 2));
+        const hc = Math.max(0, Math.min(bc, GRID_SIZE - 2));
+        return {
+          highlight: { row: hr, col: hc },
+          swipeDir: dir === 1 ? 'right' : 'left',
+          swipeIndex: r,
+        };
+      }
+    }
+  }
+  // 열 스와이프 테스트
+  for (const dir of [1, -1] as const) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const shifted = shiftCol(grid, c, dir);
+      const blasted = findBlasts(shifted);
+      if (blasted.size > 0) {
+        const firstKey = [...blasted][0];
+        const [br, bc] = firstKey.split(',').map(Number);
+        const hr = Math.max(0, Math.min(br, GRID_SIZE - 2));
+        const hc = Math.max(0, Math.min(bc, GRID_SIZE - 2));
+        return {
+          highlight: { row: hr, col: hc },
+          swipeDir: dir === 1 ? 'down' : 'up',
+          swipeIndex: c,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 type NullableGrid = (Block | null)[][];
 
 function removeBlasted(grid: Block[][], blasted: Set<string>): NullableGrid {
@@ -263,7 +308,7 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             <div className="text-3xl">👆</div>
             <p className="text-sm text-gray-300"><span className="text-white font-bold">Swipe</span> rows or columns to shift the entire line.</p>
           </div>
-            <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
             <div className="text-3xl">🧊</div>
             <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to clear them.</p>
           </div>
@@ -501,13 +546,12 @@ export default function GridShift() {
   
   const [feverMode, setFeverMode] = useState(false);
   const [feverTurns, setFeverTurns] = useState(0);
-  const [bgm, setBgm] = useState<HTMLAudioElement | null>(null);
 
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
 
   const [showInteractiveTutorial, setShowInteractiveTutorial] = useState(true);
-  const [tutorialHighlight, setTutorialHighlight] = useState<{ row: number; col: number } | null>(null);
+  const [tutorialTarget, setTutorialTarget] = useState<ReturnType<typeof findTutorialSwipeTarget>>(null);
 
   const shakeControls = useAnimation();
 
@@ -520,7 +564,6 @@ export default function GridShift() {
     gainNode.connect(audioContext.destination);
 
     if (type === 'blast') {
-      // Bang sound: short burst
       oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.1);
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -528,7 +571,6 @@ export default function GridShift() {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.1);
     } else if (type === 'combo' && comboLevel !== undefined) {
-      // Musical notes: C4, D4, E4, F4, G4, A4, B4, C5
       const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
       const freq = notes[Math.min(comboLevel - 1, notes.length - 1)];
       oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
@@ -538,6 +580,7 @@ export default function GridShift() {
       oscillator.stop(audioContext.currentTime + 0.3);
     }
   }, []);
+
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
   const adRef = useRef<HTMLDivElement>(null);
@@ -550,7 +593,11 @@ export default function GridShift() {
       setShowInteractiveTutorial(false);
     } else {
       setShowInteractiveTutorial(true);
-      setTutorialHighlight({ row: 0, col: 0 });
+      // 실제 그리드에서 스와이프 힌트 탐색 (초기 1회)
+      setGrid((currentGrid) => {
+        setTutorialTarget(findTutorialSwipeTarget(currentGrid));
+        return currentGrid;
+      });
     }
 
     // Kakao AdFit
@@ -564,23 +611,22 @@ export default function GridShift() {
     ins.setAttribute("data-ad-height", "50");
     adRef.current.appendChild(ins);
 
-    // 스크립트가 이미 로드된 경우 → load() 직접 호출
     if ((window as any).kakaoAdFit) {
       (window as any).kakaoAdFit.load();
       return;
     }
 
-    // 최초 로드
     const script = document.createElement("script");
     script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
     script.async = true;
     document.body.appendChild(script);
   }, []);
 
+  // 첫 스와이프(combo > 0) 시 인터랙티브 튜토리얼 제거
   useEffect(() => {
     if (showInteractiveTutorial && combo > 0) {
       setShowInteractiveTutorial(false);
-      setTutorialHighlight(null);
+      setTutorialTarget(null);
     }
   }, [combo, showInteractiveTutorial]);
 
@@ -588,7 +634,7 @@ export default function GridShift() {
     localStorage.setItem("gridShift_tutorial", "true");
     setShowTutorial(false);
     setShowInteractiveTutorial(false);
-    setTutorialHighlight(null);
+    setTutorialTarget(null);
   };
 
   const fetchLeaderboard = useCallback(async () => {
@@ -612,10 +658,9 @@ export default function GridShift() {
     [score, fetchLeaderboard]
   );
 
-  // 1. 상태에 의존하지 않는 애니메이션 함수들 우선 선언
   const triggerShake = useCallback(
     async (intensity: number) => {
-      const amp = Math.min(intensity * 5, 25); // Increased intensity
+      const amp = Math.min(intensity * 5, 25);
       await shakeControls.start({
         x: [0, -amp, amp, -amp, amp, 0],
         y: [0, amp, -amp, amp, -amp, 0],
@@ -636,9 +681,9 @@ export default function GridShift() {
       if (!block) return;
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
-      for (let i = 0; i < 24; i++) { // Double the particles
+      for (let i = 0; i < 24; i++) {
         const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.5;
-        const speed = 80 + Math.random() * 120; // Increase speed for farther travel
+        const speed = 80 + Math.random() * 120;
         newParticles.push({
           id: `${key}-${i}-${Date.now()}`,
           x: cx, y: cy,
@@ -654,7 +699,6 @@ export default function GridShift() {
     }, 900);
   }, []);
 
-  // 2. 다른 함수를 래핑하지 않는 독립적인 상태 변경 함수 선언 (가장 핵심적인 TDZ 방지)
   const handleDragStart = useCallback(
     (x: number, y: number, row: number, col: number) => {
       if (isAnimating || showGameOver || showTutorial) return;
@@ -663,23 +707,20 @@ export default function GridShift() {
     [isAnimating, showGameOver, showTutorial]
   );
 
-  // 3. spawnParticles와 triggerShake를 사용하는 로직
   const runBlastCycle = useCallback(
     async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
       const blasted = findBlasts(currentGrid);
       if (blasted.size === 0) {
-        setCombo(0); // Reset combo if no match
+        setCombo(0);
         setFeverMode(false);
         setIsAnimating(false);
-        return 0; // No match
+        return 0;
       }
 
-  // Update fever mode
-      const shouldStartFever = currentCombo >= 4 && !feverMode; // 5th combo starts fever
+      const shouldStartFever = currentCombo >= 4 && !feverMode;
       if (shouldStartFever) {
         setFeverMode(true);
-        setFeverTurns(3); // 3 turns of fever
-        // Placeholder for BGM control
+        setFeverTurns(3);
         console.log('Start fever BGM');
       }
 
@@ -691,7 +732,6 @@ export default function GridShift() {
         }
       }
 
-      // Add +2 bonus moves only on the first match of the current swipe
       let bonusMoves = 0;
       if (currentCombo === 0) {
         setMovesLeft((prev) => prev + 2);
@@ -703,12 +743,11 @@ export default function GridShift() {
       playSound('blast');
 
       let earnedScore = blasted.size * 10 * (currentCombo + 1);
-      if (feverMode) earnedScore *= 2; // Double score in fever mode
+      if (feverMode) earnedScore *= 2;
       setScore((prev) => prev + earnedScore);
 
-      // Slow motion for high scores
       if (earnedScore > 200) {
-        await new Promise((res) => setTimeout(res, 150)); // Longer pause for bigger scores
+        await new Promise((res) => setTimeout(res, 150));
       } else if (earnedScore > 100) {
         await new Promise((res) => setTimeout(res, 100));
       }
@@ -738,9 +777,8 @@ export default function GridShift() {
       const afterGravity = applyGravity(afterRemove, currentCombo);
       setGrid(afterGravity);
 
-      await new Promise((res) => setTimeout(res, 350)); 
+      await new Promise((res) => setTimeout(res, 350));
       
-      // Play combo sound if combo will increase
       if (currentCombo + 1 > 0) playSound('combo', currentCombo + 1);
       
       const nextBonusMoves = await runBlastCycle(afterGravity, currentCombo + 1);
@@ -749,7 +787,6 @@ export default function GridShift() {
     [spawnParticles, triggerShake]
   );
 
-  // 4. runBlastCycle을 사용하는 메인 로직
   const handleDragEnd = useCallback(
     async (endX: number, endY: number) => {
       if (!dragStart.current || isAnimating || showGameOver || showTutorial) return;
@@ -765,7 +802,6 @@ export default function GridShift() {
       const newMovesLeft = movesLeft - 1;
       setMovesLeft(newMovesLeft);
       setIsAnimating(true);
-      // setCombo(0); // Remove this to maintain combo across swipes
 
       let newGrid: Block[][];
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -775,7 +811,7 @@ export default function GridShift() {
       }
 
       setGrid(newGrid);
-      await new Promise((res) => setTimeout(res, 300)); 
+      await new Promise((res) => setTimeout(res, 300));
       
       const bonusMovesEarned = await runBlastCycle(newGrid, 0);
       
@@ -789,7 +825,6 @@ export default function GridShift() {
     [grid, isAnimating, showGameOver, showTutorial, movesLeft, runBlastCycle]
   );
 
-  // 5. handleDragStart와 handleDragEnd를 의존성으로 갖는 이벤트 핸들러들
   const onTouchStart = useCallback(
     (e: React.TouchEvent, row: number, col: number) => {
       const t = e.touches[0];
@@ -819,7 +854,8 @@ export default function GridShift() {
   );
 
   const handleReset = () => {
-    setGrid(createRandomGrid());
+    const newGrid = createRandomGrid();
+    setGrid(newGrid);
     setScore(0);
     setCombo(0);
     setFeverMode(false);
@@ -829,9 +865,13 @@ export default function GridShift() {
     setShowGameOver(false);
     setMovesLeft(MAX_SWIPES);
     setShowInteractiveTutorial(true);
-    setTutorialHighlight({ row: 0, col: 0 });
+    setTutorialTarget(findTutorialSwipeTarget(newGrid));
     gameOverTriggered.current = false;
   };
+
+  // 튜토리얼 오버레이 렌더링에 필요한 셀 크기 계산
+  const getCellSize = () =>
+    boardRef.current ? boardRef.current.getBoundingClientRect().width / GRID_SIZE : 48;
 
   return (
     <motion.div className={`min-h-[100dvh] flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden ${feverMode ? 'bg-gradient-to-br from-red-900 via-purple-900 to-blue-900' : 'bg-gray-950'}`}>
@@ -861,6 +901,7 @@ export default function GridShift() {
         )}
       </AnimatePresence>
 
+      {/* 상단 스코어 / 콤보 / 버튼 */}
       <div className="w-full max-w-sm px-4 mb-4 flex items-center justify-between">
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
@@ -923,6 +964,7 @@ export default function GridShift() {
         </div>
       </div>
 
+      {/* 무브 게이지 */}
       <div className="w-full max-w-sm px-4 mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-600 text-xs font-mono uppercase tracking-widest">Moves</span>
@@ -939,6 +981,7 @@ export default function GridShift() {
         </div>
       </div>
 
+      {/* 게임 보드 */}
       <motion.div
         animate={shakeControls}
         className="w-[92vw] max-w-[420px] aspect-square"
@@ -949,68 +992,176 @@ export default function GridShift() {
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
-          {/* Interactive Tutorial */}
-          {showInteractiveTutorial && tutorialHighlight && (
-            <motion.div
-              className="absolute inset-0 p-2 pointer-events-none z-20"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {/* 2x2 highlight boxes */}
-              {[
-                tutorialHighlight,
-                { row: tutorialHighlight.row, col: tutorialHighlight.col + 1 },
-                { row: tutorialHighlight.row + 1, col: tutorialHighlight.col },
-                { row: tutorialHighlight.row + 1, col: tutorialHighlight.col + 1 },
-              ].map((cell, idx) => {
-                const cellSize = (boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE;
-                return (
-                  <motion.div
-                    key={`hl-${idx}`}
-                    className="absolute border-2 border-yellow-300 rounded-md shadow-lg shadow-yellow-300/50"
-                    style={{
-                      width: cellSize - 4,
-                      height: cellSize - 4,
-                      left: cell.col * cellSize + 4,
-                      top: cell.row * cellSize + 4,
-                    }}
-                    animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.95, 1, 0.95] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                );
-              })}
-              {/* Finger pointer */}
+          {/* ────────────────────────────────────────
+              인터랙티브 튜토리얼 오버레이 (개선됨)
+          ──────────────────────────────────────── */}
+          <AnimatePresence>
+            {showInteractiveTutorial && tutorialTarget && (
               <motion.div
-                className="absolute text-4xl pointer-events-none"
-                style={{
-                  left: (tutorialHighlight.col + 1) * ((boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE),
-                  top: (tutorialHighlight.row + 1) * ((boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE),
-                }}
-                animate={{
-                  x: [0, 15, 0],
-                  y: [0, -15, 0],
-                  rotate: [0, -20, 0],
-                }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  repeatType: "reverse",
-                }}
+                className="absolute inset-0 rounded-2xl pointer-events-none z-20"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
               >
-                👆
-              </motion.div>
-              {/* Tutorial text */}
-              <motion.div
-                className="absolute bottom-2 left-2 right-2 bg-yellow-400/30 border border-yellow-300 rounded-lg px-3 py-2 text-yellow-100 text-xs text-center font-bold\n"
-                animate={{ opacity: [0.6, 1, 0.6] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                Swipe to match this 2×2 area!
-              </motion.div>
-            </motion.div>
-          )}
+                {/* 배경 딤 */}
+                <div className="absolute inset-0 bg-black/60 rounded-2xl" />
 
+                {/* 2×2 하이라이트 셀 */}
+                {(() => {
+                  const cellSize = getCellSize();
+                  const { row, col } = tutorialTarget.highlight;
+                  const cells = [
+                    { r: row,     c: col },
+                    { r: row,     c: col + 1 },
+                    { r: row + 1, c: col },
+                    { r: row + 1, c: col + 1 },
+                  ];
+                  return cells.map(({ r, c }, idx) => (
+                    <motion.div
+                      key={`hl-${idx}`}
+                      className="absolute rounded-md border-2 border-yellow-300 bg-yellow-200/15"
+                      style={{
+                        width:  cellSize - 5,
+                        height: cellSize - 5,
+                        left:   c * cellSize + 6,
+                        top:    r * cellSize + 6,
+                      }}
+                      animate={{
+                        boxShadow: [
+                          '0 0 0px 0px rgba(253,224,71,0)',
+                          '0 0 14px 5px rgba(253,224,71,0.65)',
+                          '0 0 0px 0px rgba(253,224,71,0)',
+                        ],
+                        opacity: [0.55, 1, 0.55],
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        delay: idx * 0.08,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  ));
+                })()}
+
+                {/* 손가락 + 스와이프 트레일 + 배지 */}
+                {(() => {
+                  const cellSize = getCellSize();
+                  const { swipeDir, swipeIndex } = tutorialTarget;
+                  const isHorizontal = swipeDir === 'left' || swipeDir === 'right';
+
+                  // 손가락 시작 위치: 스와이프하는 행/열 중앙
+                  const fingerX = isHorizontal
+                    ? (swipeDir === 'right' ? cellSize * 0.8 : cellSize * (GRID_SIZE - 1.8))
+                    : (swipeIndex + 0.5) * cellSize;
+                  const fingerY = isHorizontal
+                    ? (swipeIndex + 0.5) * cellSize
+                    : (swipeDir === 'down' ? cellSize * 0.8 : cellSize * (GRID_SIZE - 1.8));
+
+                  const travelPx = cellSize * 2;
+                  const moveX = swipeDir === 'right' ? travelPx : swipeDir === 'left' ? -travelPx : 0;
+                  const moveY = swipeDir === 'down'  ? travelPx : swipeDir === 'up'   ? -travelPx : 0;
+
+                  const arrowLabel: Record<string, string> = {
+                    right: '→ 스와이프!',
+                    left:  '← 스와이프!',
+                    down:  '↓ 스와이프!',
+                    up:    '↑ 스와이프!',
+                  };
+
+                  // 트레일 선 크기
+                  const trailW = isHorizontal ? Math.abs(moveX) : 3;
+                  const trailH = isHorizontal ? 3 : Math.abs(moveY);
+                  const trailLeft = isHorizontal
+                    ? (swipeDir === 'right' ? fingerX + 16 : fingerX + moveX + 16)
+                    : fingerX + 10;
+                  const trailTop = isHorizontal
+                    ? fingerY + 10
+                    : (swipeDir === 'down' ? fingerY + 16 : fingerY + moveY + 16);
+
+                  // 배지 위치: 트레일 중간 근처
+                  const badgeX = fingerX + moveX / 2 - 42;
+                  const badgeY = fingerY + moveY / 2 - 36;
+
+                  return (
+                    <>
+                      {/* 스와이프 트레일 */}
+                      <motion.div
+                        className="absolute bg-white/25 rounded-full"
+                        style={{
+                          width:  trailW,
+                          height: trailH,
+                          left:   trailLeft,
+                          top:    trailTop,
+                          transformOrigin: swipeDir === 'left' ? 'right center'
+                                         : swipeDir === 'up'   ? 'center bottom'
+                                         : 'left center',
+                        }}
+                        animate={{
+                          scaleX: isHorizontal ? [0, 1, 0] : 1,
+                          scaleY: !isHorizontal ? [0, 1, 0] : 1,
+                          opacity: [0, 0.7, 0],
+                        }}
+                        transition={{
+                          duration: 1.3,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                          repeatDelay: 0.4,
+                        }}
+                      />
+
+                      {/* 손가락 이모지 */}
+                      <motion.div
+                        className="absolute text-4xl drop-shadow-lg"
+                        style={{ left: fingerX, top: fingerY }}
+                        animate={{ x: [0, moveX, 0], y: [0, moveY, 0] }}
+                        transition={{
+                          duration: 1.3,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                          repeatDelay: 0.4,
+                        }}
+                      >
+                        👆
+                      </motion.div>
+
+                      {/* 스와이프 방향 배지 */}
+                      <motion.div
+                        className="absolute px-3 py-1 rounded-full bg-yellow-400 text-gray-900 font-black text-xs shadow-xl whitespace-nowrap"
+                        style={{ left: badgeX, top: badgeY }}
+                        animate={{ opacity: [0, 1, 1, 0], scale: [0.8, 1, 1, 0.8] }}
+                        transition={{
+                          duration: 1.3,
+                          repeat: Infinity,
+                          repeatDelay: 0.4,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        {arrowLabel[swipeDir]}
+                      </motion.div>
+                    </>
+                  );
+                })()}
+
+                {/* 하단 안내 텍스트 */}
+                <motion.div
+                  className="absolute bottom-3 left-3 right-3 bg-gray-900/85 border border-yellow-400/40 rounded-xl px-3 py-2.5 text-center"
+                  animate={{ opacity: [0.75, 1, 0.75] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <p className="text-yellow-300 text-xs font-black tracking-wide leading-snug">
+                    같은 색 블록 2×2를 맞추면 터져요! 💥
+                  </p>
+                  <p className="text-gray-400 text-[10px] mt-0.5">
+                    행이나 열 전체를 스와이프해서 블록을 이동시키세요
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* 파티클 레이어 */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-30">
             <AnimatePresence>
               {particles.map((p) => (
@@ -1027,6 +1178,7 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
+          {/* 스코어 팝업 레이어 */}
           <div className="absolute inset-0 pointer-events-none z-40">
             <AnimatePresence>
               {scorePopups.map((popup) => (
@@ -1045,6 +1197,7 @@ export default function GridShift() {
             </AnimatePresence>
           </div>
 
+          {/* 그리드 */}
           <div
             className="w-full h-full grid gap-1 relative"
             style={{
@@ -1057,7 +1210,6 @@ export default function GridShift() {
                 const cellKey = `${r},${c}`;
                 const isBlasting = blastingCells.has(cellKey);
                 const style = COLOR_STYLES[block.color];
-
                 const blockEmoji = block.type === 'bomb' ? '💣' : block.type === 'rainbow' ? '🌈' : '';
                 return (
                   <motion.div
@@ -1088,7 +1240,7 @@ export default function GridShift() {
         </div>
       </motion.div>
 
-      {/* 게임 그리드 motion.div 바로 아래 */}
+      {/* 카카오 광고 */}
       <div ref={adRef} className="mt-4 flex justify-center min-h-[50px]" />
 
       <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">
