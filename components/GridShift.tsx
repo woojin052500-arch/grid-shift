@@ -58,15 +58,10 @@ function createRandomGrid(): Block[][] {
     for (let c = 0; c < GRID_SIZE; c++) {
       let block: Block;
       do {
-        const isSpecial = Math.random() < 0.12;
-        let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
-        if (isSpecial) {
-          type = Math.random() < 0.6 ? 'bomb' : 'rainbow';
-        }
         block = {
           id: genId(),
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          type,
+          type: 'normal',
         };
       } while (createsImmediateMatch(grid, r, c, block));
       grid[r][c] = block;
@@ -214,11 +209,11 @@ function applyGravity(grid: NullableGrid, currentCombo: number): Block[][] {
       if (grid[r][c] !== null) col.push(grid[r][c] as Block);
     }
     while (col.length < GRID_SIZE) {
-      const specialChance = currentCombo >= 3 ? 0.12 + Math.min(currentCombo * 0.03, 0.18) : 0;
+      const specialChance = currentCombo >= 3 ? 0.08 + Math.min(currentCombo * 0.02, 0.12) : 0;
       const isSpecial = Math.random() < specialChance;
       let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
       if (isSpecial) {
-        type = Math.random() < 0.6 ? 'bomb' : 'rainbow';
+        type = Math.random() < 0.4 ? 'bomb' : 'rainbow';
       }
       col.unshift({
         id: genId(),
@@ -268,17 +263,21 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             <div className="text-3xl">👆</div>
             <p className="text-sm text-gray-300"><span className="text-white font-bold">Swipe</span> rows or columns to shift the entire line.</p>
           </div>
-          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
             <div className="text-3xl">🧊</div>
-            <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to blast them.</p>
+            <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to clear them.</p>
           </div>
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
             <div className="text-3xl">💣</div>
-            <p className="text-sm text-gray-300"><span className="text-red-400 font-bold">Bomb blocks</span> only trigger when part of a valid 2×2 match, then clear a 3×3 area.</p>
+            <p className="text-sm text-gray-300"><span className="text-red-400 font-bold">Bomb blocks</span> are bonus pieces that only work when they are included in a 2×2 match.</p>
           </div>
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
             <div className="text-3xl">🌈</div>
-            <p className="text-sm text-gray-300"><span className="text-purple-400 font-bold">Rainbow blocks</span> act as wildcards to complete 2×2 combos.</p>
+            <p className="text-sm text-gray-300"><span className="text-purple-400 font-bold">Rainbow blocks</span> can substitute for any color in a 2×2 match.</p>
+          </div>
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="text-3xl">✨</div>
+            <p className="text-sm text-gray-300">Special blocks appear only after a combo, so focus on easy 2×2 matches first.</p>
           </div>
         </div>
 
