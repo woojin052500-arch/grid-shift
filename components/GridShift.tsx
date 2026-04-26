@@ -506,6 +506,9 @@ export default function GridShift() {
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
 
+  const [showInteractiveTutorial, setShowInteractiveTutorial] = useState(true);
+  const [tutorialHighlight, setTutorialHighlight] = useState<{ row: number; col: number } | null>(null);
+
   const shakeControls = useAnimation();
 
   const playSound = useCallback((type: 'blast' | 'combo', comboLevel?: number) => {
@@ -542,7 +545,13 @@ export default function GridShift() {
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
-    if (hasSeenTutorial) setShowTutorial(false);
+    if (hasSeenTutorial) {
+      setShowTutorial(false);
+      setShowInteractiveTutorial(false);
+    } else {
+      setShowInteractiveTutorial(true);
+      setTutorialHighlight({ row: 0, col: 0 });
+    }
 
     // Kakao AdFit
     if (!adRef.current || adRef.current.childElementCount > 0) return;
@@ -568,9 +577,18 @@ export default function GridShift() {
     document.body.appendChild(script);
   }, []);
 
+  useEffect(() => {
+    if (showInteractiveTutorial && combo > 0) {
+      setShowInteractiveTutorial(false);
+      setTutorialHighlight(null);
+    }
+  }, [combo, showInteractiveTutorial]);
+
   const closeTutorial = () => {
     localStorage.setItem("gridShift_tutorial", "true");
     setShowTutorial(false);
+    setShowInteractiveTutorial(false);
+    setTutorialHighlight(null);
   };
 
   const fetchLeaderboard = useCallback(async () => {
@@ -810,6 +828,8 @@ export default function GridShift() {
     setIsAnimating(false);
     setShowGameOver(false);
     setMovesLeft(MAX_SWIPES);
+    setShowInteractiveTutorial(true);
+    setTutorialHighlight({ row: 0, col: 0 });
     gameOverTriggered.current = false;
   };
 
@@ -929,6 +949,68 @@ export default function GridShift() {
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
+          {/* Interactive Tutorial */}
+          {showInteractiveTutorial && tutorialHighlight && (
+            <motion.div
+              className="absolute inset-0 p-2 pointer-events-none z-20"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {/* 2x2 highlight boxes */}
+              {[
+                tutorialHighlight,
+                { row: tutorialHighlight.row, col: tutorialHighlight.col + 1 },
+                { row: tutorialHighlight.row + 1, col: tutorialHighlight.col },
+                { row: tutorialHighlight.row + 1, col: tutorialHighlight.col + 1 },
+              ].map((cell, idx) => {
+                const cellSize = (boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE;
+                return (
+                  <motion.div
+                    key={`hl-${idx}`}
+                    className="absolute border-2 border-yellow-300 rounded-md shadow-lg shadow-yellow-300/50"
+                    style={{
+                      width: cellSize - 4,
+                      height: cellSize - 4,
+                      left: cell.col * cellSize + 4,
+                      top: cell.row * cellSize + 4,
+                    }}
+                    animate={{ opacity: [0.4, 0.8, 0.4], scale: [0.95, 1, 0.95] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                );
+              })}
+              {/* Finger pointer */}
+              <motion.div
+                className="absolute text-4xl pointer-events-none"
+                style={{
+                  left: (tutorialHighlight.col + 1) * ((boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE),
+                  top: (tutorialHighlight.row + 1) * ((boardRef.current?.getBoundingClientRect().width || 420) / GRID_SIZE),
+                }}
+                animate={{
+                  x: [0, 15, 0],
+                  y: [0, -15, 0],
+                  rotate: [0, -20, 0],
+                }}
+                transition={{
+                  duration: 1.2,
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                }}
+              >
+                👆
+              </motion.div>
+              {/* Tutorial text */}
+              <motion.div
+                className="absolute bottom-2 left-2 right-2 bg-yellow-400/30 border border-yellow-300 rounded-lg px-3 py-2 text-yellow-100 text-xs text-center font-bold\n"
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                Swipe to match this 2×2 area!
+              </motion.div>
+            </motion.div>
+          )}
+
           <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-30">
             <AnimatePresence>
               {particles.map((p) => (
