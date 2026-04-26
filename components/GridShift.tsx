@@ -51,10 +51,21 @@ function getCountryCode(): string {
 
 function createRandomGrid(): Block[][] {
   return Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => ({
-      id: genId(),
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    }))
+    Array.from({ length: GRID_SIZE }, () => {
+      // 15% chance for special blocks in initial grid
+      const isSpecial = Math.random() < 0.15;
+      let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
+      if (isSpecial) {
+        const rand = Math.random();
+        if (rand < 0.6) type = 'bomb'; // 60% bomb, 40% rainbow
+        else type = 'rainbow';
+      }
+      return {
+        id: genId(),
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        type,
+      };
+    })
   );
 }
 
@@ -123,20 +134,38 @@ function findBlasts(grid: Block[][]): Set<string> {
       }
     }
   }
-  // Rainbow blocks: match with any color
+  // Rainbow blocks: match with any color (wildcard)
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
-      const block = grid[r][c];
-      if (block && block.type === 'rainbow') {
-        const color1 = grid[r][c + 1]?.color;
-        const color2 = grid[r + 1][c]?.color;
-        const color3 = grid[r + 1][c + 1]?.color;
-        if (color1 && color2 && color3 && color1 === color2 && color2 === color3) {
-          toBlast.add(`${r},${c}`);
-          toBlast.add(`${r},${c + 1}`);
-          toBlast.add(`${r + 1},${c}`);
-          toBlast.add(`${r + 1},${c + 1}`);
-        }
+      const blocks = [
+        grid[r][c],
+        grid[r][c + 1],
+        grid[r + 1][c],
+        grid[r + 1][c + 1]
+      ];
+
+      // Check if there's at least one rainbow block
+      const hasRainbow = blocks.some(block => block?.type === 'rainbow');
+      if (!hasRainbow) continue;
+
+      // Find a valid color from non-rainbow blocks
+      const validColors = blocks
+        .filter(block => block && block.type !== 'rainbow')
+        .map(block => block!.color);
+
+      if (validColors.length === 0) continue; // Only rainbow blocks
+
+      // Check if all non-rainbow blocks have the same color
+      const targetColor = validColors[0];
+      const allMatch = blocks.every(block =>
+        !block || block.type === 'rainbow' || block.color === targetColor
+      );
+
+      if (allMatch && validColors.length >= 1) {
+        toBlast.add(`${r},${c}`);
+        toBlast.add(`${r},${c + 1}`);
+        toBlast.add(`${r + 1},${c}`);
+        toBlast.add(`${r + 1},${c + 1}`);
       }
     }
   }
@@ -161,11 +190,14 @@ function applyGravity(grid: NullableGrid, currentCombo: number): Block[][] {
       if (grid[r][c] !== null) col.push(grid[r][c] as Block);
     }
     while (col.length < GRID_SIZE) {
-      const isSpecial = currentCombo >= 3 && Math.random() < 0.1; // 10% chance for special blocks
+      // Higher chance for special blocks, especially after combos
+      const baseChance = 0.25; // 25% base chance
+      const comboBonus = Math.min(currentCombo * 0.05, 0.25); // Up to 25% bonus from combo
+      const isSpecial = Math.random() < (baseChance + comboBonus);
       let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
       if (isSpecial) {
         const rand = Math.random();
-        if (rand < 0.5) type = 'bomb';
+        if (rand < 0.6) type = 'bomb'; // 60% bomb, 40% rainbow
         else type = 'rainbow';
       }
       col.unshift({
@@ -221,7 +253,11 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to blast them.</p>
           </div>
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
-            <div className="text-3xl">📉</div>
+            <div className="text-3xl">�</div>
+            <p className="text-sm text-gray-300"><span className="text-red-400 font-bold">Bomb blocks</span> blast 3×3 area. <span className="text-purple-400 font-bold">Rainbow blocks</span> match with any color!</p>
+          </div>
+          <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
+            <div className="text-3xl">�📉</div>
             <p className="text-sm text-gray-300">Watch your <span className="text-red-400 font-bold">Moves limit</span>. Make every swipe count!</p>
           </div>
         </div>
