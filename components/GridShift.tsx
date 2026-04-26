@@ -448,6 +448,11 @@ export default function GridShift() {
   const [feverTurns, setFeverTurns] = useState(0);
   const [bgm, setBgm] = useState<HTMLAudioElement | null>(null);
 
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+  const [isLoadingBoard, setIsLoadingBoard] = useState(false);
+
+  const shakeControls = useAnimation();
+
   const playSound = useCallback((type: 'blast' | 'combo', comboLevel?: number) => {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -478,6 +483,7 @@ export default function GridShift() {
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
   const adRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
 
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
