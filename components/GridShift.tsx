@@ -142,13 +142,6 @@ function findBlasts(grid: Block[][]): Set<string> {
   }
   return toBlast;
 }
-        toBlast.add(`${r + 1},${c}`);
-        toBlast.add(`${r + 1},${c + 1}`);
-      }
-    }
-  }
-  return toBlast;
-}
 
 type NullableGrid = (Block | null)[][];
 
@@ -452,12 +445,35 @@ export default function GridShift() {
   const [showTutorial, setShowTutorial] = useState(true);
   
   const [feverMode, setFeverMode] = useState(false);
+  const [feverTurns, setFeverTurns] = useState(0);
   const [bgm, setBgm] = useState<HTMLAudioElement | null>(null);
 
-  const playSound = useCallback((type: 'blast' | 'combo') => {
-    // Placeholder for sound effects
-    // In a real implementation, load audio files
-    console.log(`Playing ${type} sound`);
+  const playSound = useCallback((type: 'blast' | 'combo', comboLevel?: number) => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    if (type === 'blast') {
+      // Bang sound: short burst
+      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } else if (type === 'combo' && comboLevel !== undefined) {
+      // Musical notes: C4, D4, E4, F4, G4, A4, B4, C5
+      const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+      const freq = notes[Math.min(comboLevel - 1, notes.length - 1)];
+      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    }
   }, []);
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
@@ -520,7 +536,7 @@ export default function GridShift() {
   // 1. 상태에 의존하지 않는 애니메이션 함수들 우선 선언
   const triggerShake = useCallback(
     async (intensity: number) => {
-      const amp = Math.min(intensity * 3, 15);
+      const amp = Math.min(intensity * 5, 25); // Increased intensity
       await shakeControls.start({
         x: [0, -amp, amp, -amp, amp, 0],
         y: [0, amp, -amp, amp, -amp, 0],
@@ -541,9 +557,9 @@ export default function GridShift() {
       if (!block) return;
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
-      for (let i = 0; i < 12; i++) {
-        const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.5;
-        const speed = 60 + Math.random() * 100;
+      for (let i = 0; i < 24; i++) { // Double the particles
+        const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.5;
+        const speed = 80 + Math.random() * 120; // Increase speed for farther travel
         newParticles.push({
           id: `${key}-${i}-${Date.now()}`,
           x: cx, y: cy,
@@ -580,11 +596,20 @@ export default function GridShift() {
       }
 
   // Update fever mode
-      const newFeverMode = currentCombo >= 4; // 5th combo starts fever
-      if (newFeverMode !== feverMode) {
-        setFeverMode(newFeverMode);
+      const shouldStartFever = currentCombo >= 4 && !feverMode; // 5th combo starts fever
+      if (shouldStartFever) {
+        setFeverMode(true);
+        setFeverTurns(3); // 3 turns of fever
         // Placeholder for BGM control
-        console.log(newFeverMode ? 'Start fever BGM' : 'Stop fever BGM');
+        console.log('Start fever BGM');
+      }
+
+      if (feverMode) {
+        setFeverTurns(prev => prev - 1);
+        if (feverTurns <= 1) {
+          setFeverMode(false);
+          console.log('Stop fever BGM');
+        }
       }
 
       // Add +2 bonus moves only on the first match of the current swipe
@@ -599,11 +624,13 @@ export default function GridShift() {
       playSound('blast');
 
       let earnedScore = blasted.size * 10 * (currentCombo + 1);
-      if (newFeverMode) earnedScore *= 2; // Double score in fever mode
+      if (feverMode) earnedScore *= 2; // Double score in fever mode
       setScore((prev) => prev + earnedScore);
 
       // Slow motion for high scores
-      if (earnedScore > 100) {
+      if (earnedScore > 200) {
+        await new Promise((res) => setTimeout(res, 150)); // Longer pause for bigger scores
+      } else if (earnedScore > 100) {
         await new Promise((res) => setTimeout(res, 100));
       }
 
@@ -635,7 +662,7 @@ export default function GridShift() {
       await new Promise((res) => setTimeout(res, 350)); 
       
       // Play combo sound if combo will increase
-      if (currentCombo + 1 > 0) playSound('combo');
+      if (currentCombo + 1 > 0) playSound('combo', currentCombo + 1);
       
       const nextBonusMoves = await runBlastCycle(afterGravity, currentCombo + 1);
       return bonusMoves + nextBonusMoves;
@@ -726,7 +753,7 @@ export default function GridShift() {
   };
 
   return (
-    <div className={`min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden ${feverMode ? 'bg-red-900' : ''}`}>
+    <motion.div className={`min-h-[100dvh] flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden ${feverMode ? 'bg-gradient-to-br from-red-900 via-purple-900 to-blue-900' : 'bg-gray-950'}`}>
       
       <AnimatePresence>
         {showTutorial && <TutorialModal onClose={closeTutorial} />}
@@ -777,11 +804,11 @@ export default function GridShift() {
               exit={{ scale: 1.5, opacity: 0 }}
               className="flex flex-col items-center"
             >
-              <span className={`${feverMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400 animate-pulse' : 'text-yellow-400'} text-xs font-mono uppercase tracking-widest`}>Combo</span>
+              <span className={`${combo >= 3 ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400 animate-pulse' : 'text-yellow-400'} text-xs font-mono uppercase tracking-widest`}>Combo</span>
               <motion.span
-                className={`${feverMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400' : 'text-yellow-400'} font-black`}
+                className={`${combo >= 3 ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400' : 'text-yellow-400'} font-black`}
                 style={{ fontSize: `${Math.min(2 + combo * 0.3, 4)}rem` }}
-                animate={feverMode ? { scale: [1, 1.2, 1] } : {}}
+                animate={combo >= 3 ? { scale: [1, 1.2, 1] } : {}}
                 transition={{ duration: 0.5, repeat: Infinity }}
               >
                 x{combo}
@@ -924,6 +951,6 @@ export default function GridShift() {
       <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">
         swipe to shift · match 2×2 to blast
       </p>
-    </div>
+    </motion.div>
   );
 }
