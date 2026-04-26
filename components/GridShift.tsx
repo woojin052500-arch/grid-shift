@@ -589,16 +589,15 @@ export default function GridShift() {
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
     if (hasSeenTutorial) {
+      // 팝업은 생략, 인터랙티브 튜토리얼은 항상 표시
       setShowTutorial(false);
-      setShowInteractiveTutorial(false);
-    } else {
-      setShowInteractiveTutorial(true);
-      // 실제 그리드에서 스와이프 힌트 탐색 (초기 1회)
-      setGrid((currentGrid) => {
-        setTutorialTarget(findTutorialSwipeTarget(currentGrid));
-        return currentGrid;
-      });
     }
+    // 항상 그리드 분석 후 스와이프 힌트 세팅
+    setGrid((currentGrid) => {
+      setTutorialTarget(findTutorialSwipeTarget(currentGrid));
+      return currentGrid;
+    });
+    setShowInteractiveTutorial(true);
 
     // Kakao AdFit
     if (!adRef.current || adRef.current.childElementCount > 0) return;
@@ -633,8 +632,12 @@ export default function GridShift() {
   const closeTutorial = () => {
     localStorage.setItem("gridShift_tutorial", "true");
     setShowTutorial(false);
-    setShowInteractiveTutorial(false);
-    setTutorialTarget(null);
+    // 팝업이 닫히면 인터랙티브 스와이프 튜토리얼 표시
+    setGrid((currentGrid) => {
+      setTutorialTarget(findTutorialSwipeTarget(currentGrid));
+      return currentGrid;
+    });
+    setShowInteractiveTutorial(true);
   };
 
   const fetchLeaderboard = useCallback(async () => {
