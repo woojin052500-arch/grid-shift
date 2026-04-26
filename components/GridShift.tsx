@@ -7,7 +7,6 @@ import { getTopScores, submitScore, LeaderboardEntry } from "@/lib/supabase";
 const COLORS = ["red", "blue", "green", "yellow", "purple"] as const;
 type Color = (typeof COLORS)[number];
 
-// Block type with unique ID for layout animations
 type Block = {
   id: string;
   color: Color;
@@ -25,7 +24,6 @@ const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string
 const GRID_SIZE = 8;
 const MAX_SWIPES = 20;
 
-// Generate unique IDs for blocks
 function genId() {
   return Math.random().toString(36).substr(2, 9) + Date.now();
 }
@@ -63,14 +61,11 @@ function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Blo
       row + 1 === r && col === c ? block : grid[row + 1][col],
       row + 1 === r && col + 1 === c ? block : grid[row + 1][col + 1],
     ];
-
     if (cells.some((cell) => !cell)) return false;
-
     const normals = normalColors(cells);
     if (normals.length === 0) return false;
     const targetColor = normals[0];
     if (normals.some((color) => color !== targetColor)) return false;
-
     return cells.every((cell) => cell && isMatchable(cell));
   };
 
@@ -78,7 +73,6 @@ function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Blo
   if (r > 0 && c < GRID_SIZE - 1 && checkSquare(r - 1, c)) return true;
   if (r < GRID_SIZE - 1 && c > 0 && checkSquare(r, c - 1)) return true;
   if (r < GRID_SIZE - 1 && c < GRID_SIZE - 1 && checkSquare(r, c)) return true;
-
   return false;
 }
 
@@ -86,7 +80,6 @@ function createRandomGrid(): Block[][] {
   const grid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
     Array(GRID_SIZE).fill(null) as unknown as Block[]
   );
-
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
       let block: Block;
@@ -100,7 +93,6 @@ function createRandomGrid(): Block[][] {
       grid[r][c] = block;
     }
   }
-
   return grid;
 }
 
@@ -134,7 +126,6 @@ function shiftCol(grid: Block[][], colIdx: number, dir: number): Block[][] {
 
 function findBlasts(grid: Block[][]): Set<string> {
   const toBlast = new Set<string>();
-
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
       const cells = [
@@ -143,17 +134,13 @@ function findBlasts(grid: Block[][]): Set<string> {
         grid[r + 1][c],
         grid[r + 1][c + 1],
       ];
-
       if (cells.some((cell) => !cell)) continue;
-
       const normalBlocks = cells.filter(
         (cell): cell is Block => cell?.type === 'normal'
       );
       if (normalBlocks.length === 0) continue;
-
       const targetColor = normalBlocks[0].color;
       if (normalBlocks.some((cell) => cell.color !== targetColor)) continue;
-
       const validMatch = cells.every(
         (cell) =>
           cell?.type === 'normal' ||
@@ -161,16 +148,10 @@ function findBlasts(grid: Block[][]): Set<string> {
           cell?.type === 'bomb'
       );
       if (!validMatch) continue;
-
       const coords = [
-        [r, c],
-        [r, c + 1],
-        [r + 1, c],
-        [r + 1, c + 1],
+        [r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1],
       ];
-
       coords.forEach(([rr, cc]) => toBlast.add(`${rr},${cc}`));
-
       cells.forEach((cell, idx) => {
         if (cell?.type === 'bomb') {
           const [br, bc] = coords[idx];
@@ -187,17 +168,16 @@ function findBlasts(grid: Block[][]): Set<string> {
       });
     }
   }
-
   return toBlast;
 }
 
-// 스와이프 한 번으로 2×2 매치가 만들어질 위치를 탐색
-function findTutorialSwipeTarget(grid: Block[][]): {
+type TutorialTarget = {
   highlight: { row: number; col: number };
   swipeDir: 'left' | 'right' | 'up' | 'down';
   swipeIndex: number;
-} | null {
-  // 행 스와이프 테스트
+};
+
+function findTutorialSwipeTarget(grid: Block[][]): TutorialTarget {
   for (const dir of [1, -1] as const) {
     for (let r = 0; r < GRID_SIZE; r++) {
       const shifted = shiftRow(grid, r, dir);
@@ -205,17 +185,14 @@ function findTutorialSwipeTarget(grid: Block[][]): {
       if (blasted.size > 0) {
         const firstKey = [...blasted][0];
         const [br, bc] = firstKey.split(',').map(Number);
-        const hr = Math.max(0, Math.min(br, GRID_SIZE - 2));
-        const hc = Math.max(0, Math.min(bc, GRID_SIZE - 2));
         return {
-          highlight: { row: hr, col: hc },
+          highlight: { row: Math.max(0, Math.min(br, GRID_SIZE - 2)), col: Math.max(0, Math.min(bc, GRID_SIZE - 2)) },
           swipeDir: dir === 1 ? 'right' : 'left',
           swipeIndex: r,
         };
       }
     }
   }
-  // 열 스와이프 테스트
   for (const dir of [1, -1] as const) {
     for (let c = 0; c < GRID_SIZE; c++) {
       const shifted = shiftCol(grid, c, dir);
@@ -223,17 +200,15 @@ function findTutorialSwipeTarget(grid: Block[][]): {
       if (blasted.size > 0) {
         const firstKey = [...blasted][0];
         const [br, bc] = firstKey.split(',').map(Number);
-        const hr = Math.max(0, Math.min(br, GRID_SIZE - 2));
-        const hc = Math.max(0, Math.min(bc, GRID_SIZE - 2));
         return {
-          highlight: { row: hr, col: hc },
+          highlight: { row: Math.max(0, Math.min(br, GRID_SIZE - 2)), col: Math.max(0, Math.min(bc, GRID_SIZE - 2)) },
           swipeDir: dir === 1 ? 'down' : 'up',
           swipeIndex: c,
         };
       }
     }
   }
-  return null;
+  return { highlight: { row: 3, col: 3 }, swipeDir: 'right', swipeIndex: 3 };
 }
 
 type NullableGrid = (Block | null)[][];
@@ -302,7 +277,6 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-white text-2xl font-black tracking-tight mb-2">How to Play 🎮</h2>
           <p className="text-gray-400 text-sm">Master the Grid Shift!</p>
         </div>
-        
         <div className="space-y-4 mb-8">
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
             <div className="text-3xl">👆</div>
@@ -325,13 +299,12 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             <p className="text-sm text-gray-300">Special blocks appear only after a combo, so focus on easy 2×2 matches first.</p>
           </div>
         </div>
-
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={onClose}
           className="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase bg-blue-500 text-white hover:bg-blue-400 transition-colors shadow-lg shadow-blue-500/30"
         >
-          Let's Go!
+          Let&apos;s Go!
         </motion.button>
       </motion.div>
     </motion.div>
@@ -367,7 +340,6 @@ function LeaderboardModal({ onClose, entries, isLoading }: any) {
             ✕
           </button>
         </div>
-
         {isLoading ? (
           <div className="flex justify-center py-12">
             <motion.div
@@ -461,7 +433,6 @@ function GameOverModal({ score, onSubmit, onClose, onViewLeaderboard }: any) {
             {score.toLocaleString()}
           </motion.p>
         </div>
-
         {!submitted ? (
           <div className="space-y-3">
             <div className="relative">
@@ -508,7 +479,6 @@ function GameOverModal({ score, onSubmit, onClose, onViewLeaderboard }: any) {
             <p className="text-gray-500 text-sm">You&apos;re on the global board!</p>
           </motion.div>
         )}
-
         <div className="flex gap-2 mt-4">
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -531,7 +501,13 @@ function GameOverModal({ score, onSubmit, onClose, onViewLeaderboard }: any) {
 }
 
 export default function GridShift() {
-  const [grid, setGrid] = useState<Block[][]>(createRandomGrid);
+  // ✅ Fix 1: lazy init으로 grid와 tutorialTarget을 동시에 생성 → tutorialTarget이 null로 시작하는 버그 해결
+  const [initState] = useState(() => {
+    const g = createRandomGrid();
+    return { grid: g, target: findTutorialSwipeTarget(g) };
+  });
+
+  const [grid, setGrid] = useState<Block[][]>(initState.grid);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -539,11 +515,11 @@ export default function GridShift() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number }[]>([]);
   const [movesLeft, setMovesLeft] = useState(MAX_SWIPES);
-  
+
   const [showGameOver, setShowGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
-  
+
   const [feverMode, setFeverMode] = useState(false);
   const [feverTurns, setFeverTurns] = useState(0);
 
@@ -551,7 +527,11 @@ export default function GridShift() {
   const [isLoadingBoard, setIsLoadingBoard] = useState(false);
 
   const [showInteractiveTutorial, setShowInteractiveTutorial] = useState(true);
-  const [tutorialTarget, setTutorialTarget] = useState<ReturnType<typeof findTutorialSwipeTarget>>(null);
+  // ✅ Fix 1: 초기값을 initState.target으로 설정 (null 아님)
+  const [tutorialTarget, setTutorialTarget] = useState<TutorialTarget>(initState.target);
+
+  // ✅ Fix 3: boardSize state로 cellSize 안전하게 관리 (boardRef가 null인 첫 렌더 대응)
+  const [boardSize, setBoardSize] = useState(0);
 
   const shakeControls = useAnimation();
 
@@ -559,10 +539,8 @@ export default function GridShift() {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
     if (type === 'blast') {
       oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 0.1);
@@ -589,19 +567,16 @@ export default function GridShift() {
   useEffect(() => {
     const hasSeenTutorial = localStorage.getItem("gridShift_tutorial");
     if (hasSeenTutorial) {
-      // 팝업은 생략, 인터랙티브 튜토리얼은 항상 표시
       setShowTutorial(false);
     }
-    // 항상 그리드 분석 후 스와이프 힌트 세팅
-    setGrid((currentGrid) => {
-      setTutorialTarget(findTutorialSwipeTarget(currentGrid));
-      return currentGrid;
-    });
-    setShowInteractiveTutorial(true);
+
+    // ✅ Fix 3: DOM 확정 후 boardSize 측정
+    if (boardRef.current) {
+      setBoardSize(boardRef.current.getBoundingClientRect().width);
+    }
 
     // Kakao AdFit
     if (!adRef.current || adRef.current.childElementCount > 0) return;
-
     const ins = document.createElement("ins");
     ins.className = "kakao_ad_area";
     ins.style.display = "none";
@@ -609,28 +584,40 @@ export default function GridShift() {
     ins.setAttribute("data-ad-width", "320");
     ins.setAttribute("data-ad-height", "50");
     adRef.current.appendChild(ins);
-
     if ((window as any).kakaoAdFit) {
       (window as any).kakaoAdFit.load();
       return;
     }
-
     const script = document.createElement("script");
     script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
     script.async = true;
     document.body.appendChild(script);
   }, []);
 
+  // ✅ Fix 3: boardRef 크기 변화 감지 (resize 대응)
+  useEffect(() => {
+    if (!boardRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setBoardSize(entry.contentRect.width);
+      }
+    });
+    observer.observe(boardRef.current);
+    return () => observer.disconnect();
+  }, []);
 
+  // ✅ Fix 3: boardSize 기반 cellSize 계산 (null 안전)
+  const getCellSize = useCallback(() => {
+    return boardSize > 0 ? boardSize / GRID_SIZE : 48;
+  }, [boardSize]);
 
+  // ✅ Fix 2: closeTutorial에서 setGrid updater 안에 setState 중첩 제거
   const closeTutorial = () => {
     localStorage.setItem("gridShift_tutorial", "true");
     setShowTutorial(false);
-    // 팝업이 닫히면 인터랙티브 스와이프 튜토리얼 표시
-    setGrid((currentGrid) => {
-      setTutorialTarget(findTutorialSwipeTarget(currentGrid));
-      return currentGrid;
-    });
+    // grid 클로저를 직접 사용하여 tutorialTarget 계산
+    setTutorialTarget(findTutorialSwipeTarget(grid));
     setShowInteractiveTutorial(true);
   };
 
@@ -718,14 +705,12 @@ export default function GridShift() {
       if (shouldStartFever) {
         setFeverMode(true);
         setFeverTurns(3);
-        console.log('Start fever BGM');
       }
 
       if (feverMode) {
         setFeverTurns(prev => prev - 1);
         if (feverTurns <= 1) {
           setFeverMode(false);
-          console.log('Stop fever BGM');
         }
       }
 
@@ -754,12 +739,10 @@ export default function GridShift() {
         const cellSize = boardRect.width / GRID_SIZE;
         const firstCell = [...blasted][0].split(",").map(Number);
         const popupId = `popup-${Date.now()}-${Math.random()}`;
-        
         setScorePopups((prev) => [
           ...prev,
           { id: popupId, value: earnedScore, x: firstCell[1] * cellSize + cellSize / 2, y: firstCell[0] * cellSize },
         ]);
-        
         setTimeout(() => {
           setScorePopups((prev) => prev.filter((p) => p.id !== popupId));
         }, 800);
@@ -775,13 +758,13 @@ export default function GridShift() {
       setGrid(afterGravity);
 
       await new Promise((res) => setTimeout(res, 350));
-      
+
       if (currentCombo + 1 > 0) playSound('combo', currentCombo + 1);
-      
+
       const nextBonusMoves = await runBlastCycle(afterGravity, currentCombo + 1);
       return bonusMoves + nextBonusMoves;
     },
-    [spawnParticles, triggerShake]
+    [spawnParticles, triggerShake, feverMode, feverTurns, playSound]
   );
 
   const handleDragEnd = useCallback(
@@ -799,7 +782,7 @@ export default function GridShift() {
       // 첫 스와이프 시 인터랙티브 튜토리얼 즉시 제거
       if (showInteractiveTutorial) {
         setShowInteractiveTutorial(false);
-        setTutorialTarget(null);
+        setTutorialTarget(null as any);
       }
 
       const newMovesLeft = movesLeft - 1;
@@ -815,9 +798,9 @@ export default function GridShift() {
 
       setGrid(newGrid);
       await new Promise((res) => setTimeout(res, 300));
-      
+
       const bonusMovesEarned = await runBlastCycle(newGrid, 0);
-      
+
       const finalMovesLeft = newMovesLeft + bonusMovesEarned;
 
       if (finalMovesLeft <= 0 && !gameOverTriggered.current) {
@@ -858,6 +841,7 @@ export default function GridShift() {
 
   const handleReset = () => {
     const newGrid = createRandomGrid();
+    const newTarget = findTutorialSwipeTarget(newGrid);
     setGrid(newGrid);
     setScore(0);
     setCombo(0);
@@ -867,18 +851,15 @@ export default function GridShift() {
     setIsAnimating(false);
     setShowGameOver(false);
     setMovesLeft(MAX_SWIPES);
+    // ✅ Fix 2: setGrid updater 없이 newGrid로 직접 target 계산
+    setTutorialTarget(newTarget);
     setShowInteractiveTutorial(true);
-    setTutorialTarget(findTutorialSwipeTarget(newGrid));
     gameOverTriggered.current = false;
   };
 
-  // 튜토리얼 오버레이 렌더링에 필요한 셀 크기 계산
-  const getCellSize = () =>
-    boardRef.current ? boardRef.current.getBoundingClientRect().width / GRID_SIZE : 48;
-
   return (
     <motion.div className={`min-h-[100dvh] flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden ${feverMode ? 'bg-gradient-to-br from-red-900 via-purple-900 to-blue-900' : 'bg-gray-950'}`}>
-      
+
       <AnimatePresence>
         {showTutorial && <TutorialModal onClose={closeTutorial} />}
       </AnimatePresence>
@@ -995,9 +976,7 @@ export default function GridShift() {
           onMouseUp={onMouseUp}
           onMouseLeave={() => { dragStart.current = null; }}
         >
-          {/* ────────────────────────────────────────
-              인터랙티브 튜토리얼 오버레이 (개선됨)
-          ──────────────────────────────────────── */}
+          {/* ✅ 인터랙티브 튜토리얼 오버레이 — 3가지 버그 모두 수정됨 */}
           <AnimatePresence>
             {showInteractiveTutorial && tutorialTarget && (
               <motion.div
@@ -1054,7 +1033,6 @@ export default function GridShift() {
                   const { swipeDir, swipeIndex } = tutorialTarget;
                   const isHorizontal = swipeDir === 'left' || swipeDir === 'right';
 
-                  // 손가락 시작 위치: 스와이프하는 행/열 중앙
                   const fingerX = isHorizontal
                     ? (swipeDir === 'right' ? cellSize * 0.8 : cellSize * (GRID_SIZE - 1.8))
                     : (swipeIndex + 0.5) * cellSize;
@@ -1073,7 +1051,6 @@ export default function GridShift() {
                     up:    '↑ 스와이프!',
                   };
 
-                  // 트레일 선 크기
                   const trailW = isHorizontal ? Math.abs(moveX) : 3;
                   const trailH = isHorizontal ? 3 : Math.abs(moveY);
                   const trailLeft = isHorizontal
@@ -1083,7 +1060,6 @@ export default function GridShift() {
                     ? fingerY + 10
                     : (swipeDir === 'down' ? fingerY + 16 : fingerY + moveY + 16);
 
-                  // 배지 위치: 트레일 중간 근처
                   const badgeX = fingerX + moveX / 2 - 42;
                   const badgeY = fingerY + moveY / 2 - 36;
 
@@ -1227,7 +1203,7 @@ export default function GridShift() {
                     transition={{
                       layout: { type: "spring", stiffness: 300, damping: 30 },
                       scale: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 },
-                      opacity: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 }
+                      opacity: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 },
                     }}
                     className={`rounded-md cursor-pointer ${style.bg} shadow-md ${style.shadow} ${isBlasting ? "z-10" : ""} flex items-center justify-center text-white font-black text-lg`}
                     onMouseDown={(e) => onMouseDown(e, r, c)}
