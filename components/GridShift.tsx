@@ -11,6 +11,7 @@ type Color = (typeof COLORS)[number];
 type Block = {
   id: string;
   color: Color;
+  type?: 'normal' | 'bomb' | 'rainbow';
 };
 
 const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string }> = {
@@ -85,19 +86,62 @@ function shiftCol(grid: Block[][], colIdx: number, dir: number): Block[][] {
   return newGrid;
 }
 
-function find2x2Blasts(grid: Block[][]): Set<string> {
+function findBlasts(grid: Block[][]): Set<string> {
   const toBlast = new Set<string>();
+  // 2x2 normal matches
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
       const block = grid[r][c];
       if (
         block &&
+        block.type !== 'bomb' &&
         grid[r][c + 1]?.color === block.color &&
         grid[r + 1][c]?.color === block.color &&
         grid[r + 1][c + 1]?.color === block.color
       ) {
         toBlast.add(`${r},${c}`);
         toBlast.add(`${r},${c + 1}`);
+        toBlast.add(`${r + 1},${c}`);
+        toBlast.add(`${r + 1},${c + 1}`);
+      }
+    }
+  }
+  // Bomb blocks: 3x3 area
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const block = grid[r][c];
+      if (block && block.type === 'bomb') {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+              toBlast.add(`${nr},${nc}`);
+            }
+          }
+        }
+      }
+    }
+  }
+  // Rainbow blocks: match with any color
+  for (let r = 0; r < GRID_SIZE - 1; r++) {
+    for (let c = 0; c < GRID_SIZE - 1; c++) {
+      const block = grid[r][c];
+      if (block && block.type === 'rainbow') {
+        const color1 = grid[r][c + 1]?.color;
+        const color2 = grid[r + 1][c]?.color;
+        const color3 = grid[r + 1][c + 1]?.color;
+        if (color1 && color2 && color3 && color1 === color2 && color2 === color3) {
+          toBlast.add(`${r},${c}`);
+          toBlast.add(`${r},${c + 1}`);
+          toBlast.add(`${r + 1},${c}`);
+          toBlast.add(`${r + 1},${c + 1}`);
+        }
+      }
+    }
+  }
+  return toBlast;
+}
         toBlast.add(`${r + 1},${c}`);
         toBlast.add(`${r + 1},${c + 1}`);
       }
@@ -114,7 +158,7 @@ function removeBlasted(grid: Block[][], blasted: Set<string>): NullableGrid {
   );
 }
 
-function applyGravity(grid: NullableGrid): Block[][] {
+function applyGravity(grid: NullableGrid, currentCombo: number): Block[][] {
   const newGrid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
     Array(GRID_SIZE).fill(null)
   );
@@ -124,9 +168,17 @@ function applyGravity(grid: NullableGrid): Block[][] {
       if (grid[r][c] !== null) col.push(grid[r][c] as Block);
     }
     while (col.length < GRID_SIZE) {
+      const isSpecial = currentCombo >= 3 && Math.random() < 0.1; // 10% chance for special blocks
+      let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
+      if (isSpecial) {
+        const rand = Math.random();
+        if (rand < 0.5) type = 'bomb';
+        else type = 'rainbow';
+      }
       col.unshift({
         id: genId(),
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        type,
       });
     }
     for (let r = 0; r < GRID_SIZE; r++) {
@@ -399,11 +451,14 @@ export default function GridShift() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   
-  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
-  const [isLoadingBoard, setIsLoadingBoard] = useState(false);
+  const [feverMode, setFeverMode] = useState(false);
+  const [bgm, setBgm] = useState<HTMLAudioElement | null>(null);
 
-  const shakeControls = useAnimation();
-  const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
+  const playSound = useCallback((type: 'blast' | 'combo') => {
+    // Placeholder for sound effects
+    // In a real implementation, load audio files
+    console.log(`Playing ${type} sound`);
+  }, []);
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
   const adRef = useRef<HTMLDivElement>(null);
@@ -486,9 +541,9 @@ export default function GridShift() {
       if (!block) return;
       const cx = c * cellSize + cellSize / 2;
       const cy = r * cellSize + cellSize / 2;
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
-        const speed = 40 + Math.random() * 60;
+      for (let i = 0; i < 12; i++) {
+        const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.5;
+        const speed = 60 + Math.random() * 100;
         newParticles.push({
           id: `${key}-${i}-${Date.now()}`,
           x: cx, y: cy,
@@ -516,11 +571,20 @@ export default function GridShift() {
   // 3. spawnParticles와 triggerShake를 사용하는 로직
   const runBlastCycle = useCallback(
     async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
-      const blasted = find2x2Blasts(currentGrid);
+      const blasted = findBlasts(currentGrid);
       if (blasted.size === 0) {
-        setCombo(currentCombo);
+        setCombo(0); // Reset combo if no match
+        setFeverMode(false);
         setIsAnimating(false);
         return 0; // No match
+      }
+
+  // Update fever mode
+      const newFeverMode = currentCombo >= 4; // 5th combo starts fever
+      if (newFeverMode !== feverMode) {
+        setFeverMode(newFeverMode);
+        // Placeholder for BGM control
+        console.log(newFeverMode ? 'Start fever BGM' : 'Stop fever BGM');
       }
 
       // Add +2 bonus moves only on the first match of the current swipe
@@ -532,9 +596,16 @@ export default function GridShift() {
 
       spawnParticles([...blasted], currentGrid);
       setBlastingCells(blasted);
+      playSound('blast');
 
-      const earnedScore = blasted.size * 10 * (currentCombo + 1);
+      let earnedScore = blasted.size * 10 * (currentCombo + 1);
+      if (newFeverMode) earnedScore *= 2; // Double score in fever mode
       setScore((prev) => prev + earnedScore);
+
+      // Slow motion for high scores
+      if (earnedScore > 100) {
+        await new Promise((res) => setTimeout(res, 100));
+      }
 
       if (boardRef.current) {
         const boardRect = boardRef.current.getBoundingClientRect();
@@ -558,10 +629,13 @@ export default function GridShift() {
       setBlastingCells(new Set());
 
       const afterRemove = removeBlasted(currentGrid, blasted);
-      const afterGravity = applyGravity(afterRemove);
+      const afterGravity = applyGravity(afterRemove, currentCombo);
       setGrid(afterGravity);
 
       await new Promise((res) => setTimeout(res, 350)); 
+      
+      // Play combo sound if combo will increase
+      if (currentCombo + 1 > 0) playSound('combo');
       
       const nextBonusMoves = await runBlastCycle(afterGravity, currentCombo + 1);
       return bonusMoves + nextBonusMoves;
@@ -585,7 +659,7 @@ export default function GridShift() {
       const newMovesLeft = movesLeft - 1;
       setMovesLeft(newMovesLeft);
       setIsAnimating(true);
-      setCombo(0);
+      // setCombo(0); // Remove this to maintain combo across swipes
 
       let newGrid: Block[][];
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
@@ -642,6 +716,7 @@ export default function GridShift() {
     setGrid(createRandomGrid());
     setScore(0);
     setCombo(0);
+    setFeverMode(false);
     setParticles([]);
     setBlastingCells(new Set());
     setIsAnimating(false);
@@ -651,7 +726,7 @@ export default function GridShift() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden">
+    <div className={`min-h-[100dvh] bg-gray-950 flex flex-col items-center justify-start pt-6 pb-4 select-none overflow-hidden ${feverMode ? 'bg-red-900' : ''}`}>
       
       <AnimatePresence>
         {showTutorial && <TutorialModal onClose={closeTutorial} />}
@@ -702,13 +777,15 @@ export default function GridShift() {
               exit={{ scale: 1.5, opacity: 0 }}
               className="flex flex-col items-center"
             >
-              <span className="text-yellow-400 text-xs font-mono uppercase tracking-widest">Combo</span>
-              <span
-                className="text-yellow-400 font-black"
+              <span className={`${feverMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400 animate-pulse' : 'text-yellow-400'} text-xs font-mono uppercase tracking-widest`}>Combo</span>
+              <motion.span
+                className={`${feverMode ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 via-purple-400 to-pink-400' : 'text-yellow-400'} font-black`}
                 style={{ fontSize: `${Math.min(2 + combo * 0.3, 4)}rem` }}
+                animate={feverMode ? { scale: [1, 1.2, 1] } : {}}
+                transition={{ duration: 0.5, repeat: Infinity }}
               >
                 x{combo}
-              </span>
+              </motion.span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -811,6 +888,7 @@ export default function GridShift() {
                 const isBlasting = blastingCells.has(cellKey);
                 const style = COLOR_STYLES[block.color];
 
+                const blockEmoji = block.type === 'bomb' ? '💣' : block.type === 'rainbow' ? '🌈' : '';
                 return (
                   <motion.div
                     layout
@@ -826,11 +904,13 @@ export default function GridShift() {
                       scale: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 },
                       opacity: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 }
                     }}
-                    className={`rounded-md cursor-pointer ${style.bg} shadow-md ${style.shadow} ${isBlasting ? "z-10" : ""}`}
+                    className={`rounded-md cursor-pointer ${style.bg} shadow-md ${style.shadow} ${isBlasting ? "z-10" : ""} flex items-center justify-center text-white font-black text-lg`}
                     onMouseDown={(e) => onMouseDown(e, r, c)}
                     onTouchStart={(e) => onTouchStart(e, r, c)}
                     onTouchEnd={onTouchEnd}
-                  />
+                  >
+                    {blockEmoji}
+                  </motion.div>
                 );
               })
             )}
