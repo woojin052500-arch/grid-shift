@@ -621,13 +621,7 @@ export default function GridShift() {
     document.body.appendChild(script);
   }, []);
 
-  // 첫 스와이프(combo > 0) 시 인터랙티브 튜토리얼 제거
-  useEffect(() => {
-    if (showInteractiveTutorial && combo > 0) {
-      setShowInteractiveTutorial(false);
-      setTutorialTarget(null);
-    }
-  }, [combo, showInteractiveTutorial]);
+
 
   const closeTutorial = () => {
     localStorage.setItem("gridShift_tutorial", "true");
@@ -802,6 +796,12 @@ export default function GridShift() {
 
       if (Math.abs(deltaX) < THRESHOLD && Math.abs(deltaY) < THRESHOLD) return;
 
+      // 첫 스와이프 시 인터랙티브 튜토리얼 즉시 제거
+      if (showInteractiveTutorial) {
+        setShowInteractiveTutorial(false);
+        setTutorialTarget(null);
+      }
+
       const newMovesLeft = movesLeft - 1;
       setMovesLeft(newMovesLeft);
       setIsAnimating(true);
@@ -825,7 +825,7 @@ export default function GridShift() {
         setShowGameOver(true);
       }
     },
-    [grid, isAnimating, showGameOver, showTutorial, movesLeft, runBlastCycle]
+    [grid, isAnimating, showGameOver, showTutorial, showInteractiveTutorial, movesLeft, runBlastCycle]
   );
 
   const onTouchStart = useCallback(
