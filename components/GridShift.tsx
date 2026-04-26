@@ -50,23 +50,63 @@ function getCountryCode(): string {
 }
 
 function createRandomGrid(): Block[][] {
-  return Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => {
-      // 15% chance for special blocks in initial grid
-      const isSpecial = Math.random() < 0.15;
-      let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
-      if (isSpecial) {
-        const rand = Math.random();
-        if (rand < 0.6) type = 'bomb'; // 60% bomb, 40% rainbow
-        else type = 'rainbow';
-      }
-      return {
-        id: genId(),
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        type,
-      };
-    })
+  const grid: Block[][] = Array.from({ length: GRID_SIZE }, () =>
+    Array(GRID_SIZE).fill(null) as unknown as Block[]
   );
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      let block: Block;
+      do {
+        const isSpecial = Math.random() < 0.12;
+        let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
+        if (isSpecial) {
+          type = Math.random() < 0.6 ? 'bomb' : 'rainbow';
+        }
+        block = {
+          id: genId(),
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          type,
+        };
+      } while (createsImmediateMatch(grid, r, c, block));
+      grid[r][c] = block;
+    }
+  }
+
+  return grid;
+}
+
+function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Block): boolean {
+  const isMatchable = (cell: Block | null) =>
+    !!cell && (cell.type === 'normal' || cell.type === 'rainbow' || cell.type === 'bomb');
+
+  const normalColors = (cells: Array<Block | null>) =>
+    cells.filter((cell): cell is Block => !!cell && cell.type === 'normal').map((cell) => cell.color);
+
+  const checkSquare = (row: number, col: number) => {
+    const cells = [
+      row === r && col === c ? block : grid[row][col],
+      row === r && col + 1 === c ? block : grid[row][col + 1],
+      row + 1 === r && col === c ? block : grid[row + 1][col],
+      row + 1 === r && col + 1 === c ? block : grid[row + 1][col + 1],
+    ];
+
+    if (cells.some((cell) => !cell)) return false;
+
+    const normals = normalColors(cells);
+    if (normals.length === 0) return false;
+    const targetColor = normals[0];
+    if (normals.some((color) => color !== targetColor)) return false;
+
+    return cells.every((cell) => cell && isMatchable(cell));
+  };
+
+  if (r > 0 && c > 0 && checkSquare(r - 1, c - 1)) return true;
+  if (r > 0 && c < GRID_SIZE - 1 && checkSquare(r - 1, c)) return true;
+  if (r < GRID_SIZE - 1 && c > 0 && checkSquare(r, c - 1)) return true;
+  if (r < GRID_SIZE - 1 && c < GRID_SIZE - 1 && checkSquare(r, c)) return true;
+
+  return false;
 }
 
 function shiftRow(grid: Block[][], rowIdx: number, dir: number): Block[][] {
@@ -99,76 +139,60 @@ function shiftCol(grid: Block[][], colIdx: number, dir: number): Block[][] {
 
 function findBlasts(grid: Block[][]): Set<string> {
   const toBlast = new Set<string>();
-  // 2x2 normal matches
+
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
-      const block = grid[r][c];
-      if (
-        block &&
-        block.type !== 'bomb' &&
-        grid[r][c + 1]?.color === block.color &&
-        grid[r + 1][c]?.color === block.color &&
-        grid[r + 1][c + 1]?.color === block.color
-      ) {
-        toBlast.add(`${r},${c}`);
-        toBlast.add(`${r},${c + 1}`);
-        toBlast.add(`${r + 1},${c}`);
-        toBlast.add(`${r + 1},${c + 1}`);
-      }
-    }
-  }
-  // Bomb blocks: 3x3 area
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
-      const block = grid[r][c];
-      if (block && block.type === 'bomb') {
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            const nr = r + dr;
-            const nc = c + dc;
-            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
-              toBlast.add(`${nr},${nc}`);
-            }
-          }
-        }
-      }
-    }
-  }
-  // Rainbow blocks: match with any color (wildcard)
-  for (let r = 0; r < GRID_SIZE - 1; r++) {
-    for (let c = 0; c < GRID_SIZE - 1; c++) {
-      const blocks = [
+      const cells = [
         grid[r][c],
         grid[r][c + 1],
         grid[r + 1][c],
-        grid[r + 1][c + 1]
+        grid[r + 1][c + 1],
       ];
 
-      // Check if there's at least one rainbow block
-      const hasRainbow = blocks.some(block => block?.type === 'rainbow');
-      if (!hasRainbow) continue;
+      if (cells.some((cell) => !cell)) continue;
 
-      // Find a valid color from non-rainbow blocks
-      const validColors = blocks
-        .filter(block => block && block.type !== 'rainbow')
-        .map(block => block!.color);
-
-      if (validColors.length === 0) continue; // Only rainbow blocks
-
-      // Check if all non-rainbow blocks have the same color
-      const targetColor = validColors[0];
-      const allMatch = blocks.every(block =>
-        !block || block.type === 'rainbow' || block.color === targetColor
+      const normalBlocks = cells.filter(
+        (cell): cell is Block => cell?.type === 'normal'
       );
+      if (normalBlocks.length === 0) continue;
 
-      if (allMatch && validColors.length >= 1) {
-        toBlast.add(`${r},${c}`);
-        toBlast.add(`${r},${c + 1}`);
-        toBlast.add(`${r + 1},${c}`);
-        toBlast.add(`${r + 1},${c + 1}`);
-      }
+      const targetColor = normalBlocks[0].color;
+      if (normalBlocks.some((cell) => cell.color !== targetColor)) continue;
+
+      const validMatch = cells.every(
+        (cell) =>
+          cell?.type === 'normal' ||
+          cell?.type === 'rainbow' ||
+          cell?.type === 'bomb'
+      );
+      if (!validMatch) continue;
+
+      const coords = [
+        [r, c],
+        [r, c + 1],
+        [r + 1, c],
+        [r + 1, c + 1],
+      ];
+
+      coords.forEach(([rr, cc]) => toBlast.add(`${rr},${cc}`));
+
+      cells.forEach((cell, idx) => {
+        if (cell?.type === 'bomb') {
+          const [br, bc] = coords[idx];
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = br + dr;
+              const nc = bc + dc;
+              if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                toBlast.add(`${nr},${nc}`);
+              }
+            }
+          }
+        }
+      });
     }
   }
+
   return toBlast;
 }
 
@@ -190,15 +214,11 @@ function applyGravity(grid: NullableGrid, currentCombo: number): Block[][] {
       if (grid[r][c] !== null) col.push(grid[r][c] as Block);
     }
     while (col.length < GRID_SIZE) {
-      // Higher chance for special blocks, especially after combos
-      const baseChance = 0.25; // 25% base chance
-      const comboBonus = Math.min(currentCombo * 0.05, 0.25); // Up to 25% bonus from combo
-      const isSpecial = Math.random() < (baseChance + comboBonus);
+      const specialChance = currentCombo >= 3 ? 0.12 + Math.min(currentCombo * 0.03, 0.18) : 0;
+      const isSpecial = Math.random() < specialChance;
       let type: 'normal' | 'bomb' | 'rainbow' = 'normal';
       if (isSpecial) {
-        const rand = Math.random();
-        if (rand < 0.6) type = 'bomb'; // 60% bomb, 40% rainbow
-        else type = 'rainbow';
+        type = Math.random() < 0.6 ? 'bomb' : 'rainbow';
       }
       col.unshift({
         id: genId(),
@@ -253,12 +273,12 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
             <p className="text-sm text-gray-300">Match <span className="text-yellow-400 font-bold">2×2 blocks</span> of the same color to blast them.</p>
           </div>
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
-            <div className="text-3xl">�</div>
-            <p className="text-sm text-gray-300"><span className="text-red-400 font-bold">Bomb blocks</span> blast 3×3 area. <span className="text-purple-400 font-bold">Rainbow blocks</span> match with any color!</p>
+            <div className="text-3xl">💣</div>
+            <p className="text-sm text-gray-300"><span className="text-red-400 font-bold">Bomb blocks</span> only trigger when part of a valid 2×2 match, then clear a 3×3 area.</p>
           </div>
           <div className="flex items-center gap-4 bg-gray-800/50 p-4 rounded-xl">
-            <div className="text-3xl">�📉</div>
-            <p className="text-sm text-gray-300">Watch your <span className="text-red-400 font-bold">Moves limit</span>. Make every swipe count!</p>
+            <div className="text-3xl">🌈</div>
+            <p className="text-sm text-gray-300"><span className="text-purple-400 font-bold">Rainbow blocks</span> act as wildcards to complete 2×2 combos.</p>
           </div>
         </div>
 
