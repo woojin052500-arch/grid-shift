@@ -171,12 +171,10 @@ interface Particle { id: string; x: number; y: number; color: string; vx: number
 // ─── HOME SCREEN ─────────────────────────────────────────────────────
 function FloatingBlock({ color, x, y, size, delay, duration }: { color: string; x: number; y: number; size: number; delay: number; duration: number }) {
   return (
-    <motion.div
-      className="absolute rounded-xl"
-      style={{ left: `${x}%`, top: `${y}%`, width: size, height: size, background: `linear-gradient(135deg, ${color}99, ${color}44)`, boxShadow: `0 4px 16px ${color}33` }}
+    <motion.div className="absolute rounded-xl"
+      style={{ left: `${x}%`, top: `${y}%`, width: size, height: size, background: `linear-gradient(135deg,${color}99,${color}44)`, boxShadow: `0 4px 16px ${color}33` }}
       animate={{ y: [0, -18, 0], rotate: [0, 8, -8, 0], opacity: [0.25, 0.45, 0.25] }}
-      transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
-    />
+      transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }} />
   );
 }
 
@@ -213,136 +211,85 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
   };
 
   return (
-    <div
-      className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden select-none"
-      style={{ background: "linear-gradient(160deg, #1a3a8f 0%, #1565c0 40%, #0d47a1 70%, #0a2d6b 100%)" }}
-    >
-      {/* Stars */}
+    <div className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden select-none"
+      style={{ background: "linear-gradient(160deg,#1a3a8f 0%,#1565c0 40%,#0d47a1 70%,#0a2d6b 100%)" }}>
       {[...Array(22)].map((_, i) => (
         <motion.div key={i} className="absolute rounded-full bg-white"
           style={{ width: Math.random() * 3 + 1, height: Math.random() * 3 + 1, left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
           animate={{ opacity: [0.15, 0.9, 0.15] }}
           transition={{ duration: 1.5 + Math.random() * 2, delay: Math.random() * 4, repeat: Infinity }} />
       ))}
-
-      {/* Floating blocks */}
       {floatingBlocks.map((b, i) => <FloatingBlock key={i} {...b} />)}
 
-      {/* Title block */}
       <motion.div className="flex flex-col items-center mb-8 mt-6 relative z-10"
         initial={{ y: -60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 170, damping: 18 }}>
-        <motion.div className="text-4xl mb-1 relative z-10" animate={{ rotate: [-6, 6, -6], y: [0, -5, 0] }} transition={{ duration: 2.6, repeat: Infinity }}>👑</motion.div>
-
-        {/* GRID */}
+        <motion.div className="text-4xl mb-1" animate={{ rotate: [-6, 6, -6], y: [0, -5, 0] }} transition={{ duration: 2.6, repeat: Infinity }}>👑</motion.div>
         <div className="flex" style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.55))" }}>
-          {(["G", "R", "I", "D"] as const).map((letter, i) => (
+          {(["G","R","I","D"] as const).map((letter, i) => (
             <motion.span key={i} className="font-black leading-none select-none"
-              style={{
-                fontSize: "clamp(3.5rem, 16vw, 5.5rem)",
-                color: ["#FF6B35", "#FFD700", "#FF6B35", "#3DD6F5"][i],
-                WebkitTextStroke: "3px rgba(0,0,0,0.28)",
-                textShadow: "0 4px 0 rgba(0,0,0,0.28), 0 8px 24px rgba(0,0,0,0.18)",
-                fontFamily: "'Arial Black', 'Impact', sans-serif",
-              }}
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 * i, type: "spring", stiffness: 200 }}
-            >{letter}</motion.span>
+              style={{ fontSize: "clamp(3.5rem,16vw,5.5rem)", color: ["#FF6B35","#FFD700","#FF6B35","#3DD6F5"][i], WebkitTextStroke: "3px rgba(0,0,0,0.28)", textShadow: "0 4px 0 rgba(0,0,0,0.28),0 8px 24px rgba(0,0,0,0.18)", fontFamily: "'Arial Black','Impact',sans-serif" }}
+              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 * i, type: "spring", stiffness: 200 }}>
+              {letter}
+            </motion.span>
           ))}
         </div>
-
-        {/* SHIFT */}
         <div className="flex -mt-2" style={{ filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))" }}>
-          {(["S", "H", "I", "F", "T"] as const).map((letter, i) => (
+          {(["S","H","I","F","T"] as const).map((letter, i) => (
             <motion.span key={i} className="font-black leading-none select-none"
-              style={{
-                fontSize: "clamp(2.2rem, 10vw, 3.5rem)",
-                color: "#3DD6F5",
-                WebkitTextStroke: "2px rgba(0,0,60,0.35)",
-                textShadow: "0 3px 0 rgba(0,0,60,0.28)",
-                fontFamily: "'Arial Black', 'Impact', sans-serif",
-              }}
-              initial={{ y: 28, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.42 + 0.08 * i, type: "spring", stiffness: 200 }}
-            >{letter}</motion.span>
+              style={{ fontSize: "clamp(2.2rem,10vw,3.5rem)", color: "#3DD6F5", WebkitTextStroke: "2px rgba(0,0,60,0.35)", textShadow: "0 3px 0 rgba(0,0,60,0.28)", fontFamily: "'Arial Black','Impact',sans-serif" }}
+              initial={{ y: 28, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.42 + 0.08 * i, type: "spring", stiffness: 200 }}>
+              {letter}
+            </motion.span>
           ))}
         </div>
-
         <motion.p className="text-blue-200/60 text-xs font-bold tracking-[0.35em] uppercase mt-2"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>
-          PUZZLE · MATCH · BLAST
-        </motion.p>
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>PUZZLE · MATCH · BLAST</motion.p>
       </motion.div>
 
-      {/* Nickname card */}
       <motion.div className="w-full max-w-xs px-5 mb-4 relative z-10"
         initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-xl">
           <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-2 text-center">닉네임 입력</p>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none">👤</span>
-            <input
-              type="text"
-              value={nickname}
+            <input type="text" value={nickname}
               onChange={(e) => { setNickname(e.target.value.slice(0, 12)); setError(""); }}
               onKeyDown={(e) => e.key === "Enter" && handleStart()}
-              placeholder="닉네임을 입력하세요..."
-              maxLength={12}
-              className="w-full bg-white/15 text-white font-bold text-center rounded-xl pl-10 pr-10 py-3 outline-none border border-white/20 focus:border-yellow-300/70 transition-all placeholder-blue-200/50 text-sm"
-            />
+              placeholder="닉네임을 입력하세요..." maxLength={12}
+              className="w-full bg-white/15 text-white font-bold text-center rounded-xl pl-10 pr-10 py-3 outline-none border border-white/20 focus:border-yellow-300/70 transition-all placeholder-blue-200/50 text-sm" />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-200/50 text-xs font-mono pointer-events-none">{nickname.length}/12</span>
           </div>
           <AnimatePresence>
-            {error && (
-              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-300 text-xs text-center mt-2 font-bold">{error}</motion.p>
-            )}
+            {error && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-red-300 text-xs text-center mt-2 font-bold">{error}</motion.p>}
           </AnimatePresence>
         </div>
       </motion.div>
 
-      {/* Buttons */}
       <motion.div className="w-full max-w-xs px-5 flex flex-col gap-3 relative z-10"
         initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-        {/* Start */}
-        <motion.button
-          whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }}
-          onClick={handleStart}
+        <motion.button whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} onClick={handleStart}
           className="relative w-full py-4 rounded-2xl font-black text-lg tracking-wide text-white overflow-hidden"
-          style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", boxShadow: "0 6px 0 #92400e, 0 10px 24px rgba(245,158,11,0.4)" }}
-        >
-          <span className="relative z-10 flex items-center justify-center gap-2">
-            <span className="text-xl">🎮</span> 게임 시작
-          </span>
+          style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", boxShadow: "0 6px 0 #92400e,0 10px 24px rgba(245,158,11,0.4)" }}>
+          <span className="relative z-10 flex items-center justify-center gap-2"><span className="text-xl">🎮</span> 게임 시작</span>
           <motion.div className="absolute inset-0 bg-white/25 pointer-events-none"
-            animate={{ x: ["-120%", "220%"] }} transition={{ duration: 2.8, repeat: Infinity, ease: "linear" }}
-            style={{ skewX: "-15deg" }} />
+            animate={{ x: ["-120%","220%"] }} transition={{ duration: 2.8, repeat: Infinity, ease: "linear" }} style={{ skewX: "-15deg" }} />
         </motion.button>
-
-        {/* Leaderboard */}
-        <motion.button
-          whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }}
-          onClick={openLeaderboard}
+        <motion.button whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} onClick={openLeaderboard}
           className="w-full py-4 rounded-2xl font-black text-lg tracking-wide text-white"
-          style={{ background: "linear-gradient(135deg,#10b981,#059669)", boxShadow: "0 6px 0 #065f46, 0 10px 24px rgba(16,185,129,0.35)" }}
-        >
+          style={{ background: "linear-gradient(135deg,#10b981,#059669)", boxShadow: "0 6px 0 #065f46,0 10px 24px rgba(16,185,129,0.35)" }}>
           <span className="flex items-center justify-center gap-2"><span className="text-xl">🏆</span> 리더보드</span>
         </motion.button>
       </motion.div>
 
       <motion.p className="mt-8 text-blue-200/35 text-xs font-mono tracking-widest uppercase relative z-10"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}>
-        swipe · match · blast
-      </motion.p>
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}>swipe · match · blast</motion.p>
 
-      {/* Leaderboard Modal */}
       <AnimatePresence>
         {showBoard && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4"
             onClick={() => setShowBoard(false)}>
-            <motion.div
-              initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
+            <motion.div initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
               transition={{ type: "spring", damping: 20, stiffness: 260 }}
               className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-white/10"
               style={{ background: "linear-gradient(160deg,#1a3a8f,#0a2d6b)" }}
@@ -362,20 +309,17 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
                 <div className="text-center py-12 text-blue-300/40 font-mono text-sm">첫 번째 도전자가 되어보세요! 🚀</div>
               ) : (
                 <div className="space-y-2">
-                  {leaderboard.map((entry, idx) => {
-                    const rankIcons = ["🥇", "🥈", "🥉"];
-                    return (
-                      <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl ${idx === 0 ? "bg-yellow-400/12 border border-yellow-400/30" : "bg-white/5"}`}>
-                        <span className={`text-lg w-8 text-center ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-white/40"}`}>
-                          {idx < 3 ? rankIcons[idx] : `#${idx + 1}`}
-                        </span>
-                        <span className="text-lg">{countryFlag(entry.country_code)}</span>
-                        <span className="flex-1 text-white font-bold text-sm truncate">{entry.player_name}</span>
-                        <span className={`font-black tabular-nums text-sm ${idx === 0 ? "text-yellow-400" : "text-white/80"}`}>{entry.score.toLocaleString()}</span>
-                      </motion.div>
-                    );
-                  })}
+                  {leaderboard.map((entry, idx) => (
+                    <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl ${idx === 0 ? "bg-yellow-400/12 border border-yellow-400/30" : "bg-white/5"}`}>
+                      <span className={`text-lg w-8 text-center ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-white/40"}`}>
+                        {idx < 3 ? ["🥇","🥈","🥉"][idx] : `#${idx + 1}`}
+                      </span>
+                      <span className="text-lg">{countryFlag(entry.country_code)}</span>
+                      <span className="flex-1 text-white font-bold text-sm truncate">{entry.player_name}</span>
+                      <span className={`font-black tabular-nums text-sm ${idx === 0 ? "text-yellow-400" : "text-white/80"}`}>{entry.score.toLocaleString()}</span>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </motion.div>
@@ -390,23 +334,15 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
 function TutorialModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-      onClick={onClose}>
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
-        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800"
-        onClick={(e) => e.stopPropagation()}>
+        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
         <div className="text-center mb-5">
           <h2 className="text-white text-2xl font-black tracking-tight mb-1">How to Play 🎮</h2>
           <p className="text-gray-400 text-sm">Master the Grid Shift!</p>
         </div>
         <div className="space-y-3 mb-7">
-          {([
-            ["👆", "행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],
-            ["🧊", "같은 색 2×2 블록을 맞추면 터져요!"],
-            ["💣", "폭탄 블록은 2×2 매치에 포함되면 주변 블록도 같이 폭발!"],
-            ["🌈", "무지개 블록은 어떤 색과도 매치됩니다."],
-            ["✨", "콤보 3 이상이면 특수 블록이 등장해요!"],
-          ] as [string, string][]).map(([icon, text], i) => (
+          {([["👆","행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],["🧊","같은 색 2×2 블록을 맞추면 터져요!"],["💣","폭탄 블록은 2×2 매치에 포함되면 주변 블록도 같이 폭발!"],["🌈","무지개 블록은 어떤 색과도 매치됩니다."],["✨","콤보 3 이상이면 특수 블록이 등장해요!"]] as [string,string][]).map(([icon, text], i) => (
             <div key={i} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded-xl">
               <span className="text-2xl">{icon}</span>
               <p className="text-sm text-gray-300">{text}</p>
@@ -422,16 +358,14 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── LEADERBOARD MODAL (in-game) ─────────────────────────────────────
+// ─── LEADERBOARD MODAL ───────────────────────────────────────────────
 function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void; entries: LeaderboardEntry[]; isLoading: boolean }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
-      onClick={onClose}>
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
         transition={{ type: "spring", damping: 20, stiffness: 260 }}
-        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800"
-        onClick={(e) => e.stopPropagation()}>
+        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-white text-xl font-black tracking-tight">🏆 Global Board</h2>
@@ -447,20 +381,17 @@ function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void
           <div className="text-center py-12 text-gray-600 font-mono text-sm">No scores yet. Be the first! 🚀</div>
         ) : (
           <div className="space-y-2">
-            {entries.map((entry, idx) => {
-              const rankIcons = ["🥇", "🥈", "🥉"];
-              return (
-                <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl ${idx === 0 ? "bg-yellow-400/10 border border-yellow-400/30" : "bg-gray-800/60"}`}>
-                  <span className={`text-lg w-8 text-center ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-gray-500"}`}>
-                    {idx < 3 ? rankIcons[idx] : `#${idx + 1}`}
-                  </span>
-                  <span className="text-lg">{countryFlag(entry.country_code)}</span>
-                  <span className="flex-1 text-white font-bold text-sm truncate">{entry.player_name}</span>
-                  <span className={`font-black tabular-nums text-sm ${idx === 0 ? "text-yellow-400" : "text-gray-300"}`}>{entry.score.toLocaleString()}</span>
-                </motion.div>
-              );
-            })}
+            {entries.map((entry, idx) => (
+              <motion.div key={entry.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.06 }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl ${idx === 0 ? "bg-yellow-400/10 border border-yellow-400/30" : "bg-gray-800/60"}`}>
+                <span className={`text-lg w-8 text-center ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-600" : "text-gray-500"}`}>
+                  {idx < 3 ? ["🥇","🥈","🥉"][idx] : `#${idx + 1}`}
+                </span>
+                <span className="text-lg">{countryFlag(entry.country_code)}</span>
+                <span className="flex-1 text-white font-bold text-sm truncate">{entry.player_name}</span>
+                <span className={`font-black tabular-nums text-sm ${idx === 0 ? "text-yellow-400" : "text-gray-300"}`}>{entry.score.toLocaleString()}</span>
+              </motion.div>
+            ))}
           </div>
         )}
       </motion.div>
@@ -468,25 +399,30 @@ function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void
   );
 }
 
-// ─── GAME OVER MODAL ─────────────────────────────────────────────────
-function GameOverModal({ score, playerName, onSubmit, onClose, onViewLeaderboard, onGoHome }: {
+// ─── GAME OVER MODAL — 자동 저장 ─────────────────────────────────────
+function GameOverModal({ score, playerName, onSaveComplete, onClose, onViewLeaderboard, onGoHome }: {
   score: number;
   playerName: string;
-  onSubmit: () => Promise<void>;
+  onSaveComplete: () => Promise<void>;
   onClose: () => void;
   onViewLeaderboard: () => void;
   onGoHome: () => void;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [saveState, setSaveState] = useState<"saving" | "done" | "error">("saving");
 
-  const handleSubmit = async () => {
-    if (isSubmitting || submitted) return;
-    setIsSubmitting(true);
-    await onSubmit();
-    setIsSubmitting(false);
-    setSubmitted(true);
-  };
+  // ✅ 마운트 즉시 자동 저장
+  useEffect(() => {
+    (async () => {
+      try {
+        await submitScore(playerName, score, getCountryCode());
+        await onSaveComplete();
+        setSaveState("done");
+      } catch {
+        setSaveState("error");
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -494,6 +430,8 @@ function GameOverModal({ score, playerName, onSubmit, onClose, onViewLeaderboard
       <motion.div initial={{ scale: 0.8, y: 60, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 60, opacity: 0 }}
         transition={{ type: "spring", damping: 18, stiffness: 240 }}
         className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800">
+
+        {/* 점수 */}
         <div className="text-center mb-5">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 300 }} className="text-5xl mb-2">
             {score > 500 ? "🔥" : score > 200 ? "⭐" : "💀"}
@@ -504,24 +442,30 @@ function GameOverModal({ score, playerName, onSubmit, onClose, onViewLeaderboard
             className="text-yellow-400 text-4xl font-black tabular-nums mt-1">{score.toLocaleString()}</motion.p>
         </div>
 
-        {!submitted ? (
-          <motion.button whileTap={{ scale: 0.96 }} onClick={handleSubmit} disabled={isSubmitting}
-            className="w-full py-3 rounded-xl font-black text-sm tracking-wider uppercase bg-yellow-400 text-gray-900 disabled:opacity-40 hover:bg-yellow-300 transition-colors">
-            {isSubmitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                  className="inline-block w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full" />
-                저장 중...
-              </span>
-            ) : `🚀 ${playerName}의 점수 저장`}
-          </motion.button>
-        ) : (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-2 space-y-0.5">
-            <p className="text-green-400 font-black text-lg">저장완료! ✅</p>
-            <p className="text-gray-500 text-sm">글로벌 보드에 등록됐어요!</p>
-          </motion.div>
-        )}
+        {/* 자동 저장 상태 뱃지 */}
+        <div className="flex items-center justify-center gap-2 py-3 mb-2 rounded-xl bg-gray-800/60 border border-gray-700/50">
+          {saveState === "saving" && (
+            <>
+              <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+                className="inline-block w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full flex-shrink-0" />
+              <span className="text-gray-300 text-sm font-bold">점수 저장 중...</span>
+            </>
+          )}
+          {saveState === "done" && (
+            <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
+              <span className="text-green-400 text-xl">✅</span>
+              <span className="text-green-400 font-black text-sm">점수가 자동으로 저장됐어요!</span>
+            </motion.div>
+          )}
+          {saveState === "error" && (
+            <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
+              <span className="text-red-400 text-xl">⚠️</span>
+              <span className="text-red-400 font-bold text-sm">저장 실패. 네트워크를 확인하세요.</span>
+            </motion.div>
+          )}
+        </div>
 
+        {/* 버튼 */}
         <div className="flex gap-2 mt-3">
           <motion.button whileTap={{ scale: 0.96 }} onClick={onViewLeaderboard}
             className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-colors">🏆 리더보드</motion.button>
@@ -581,14 +525,12 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
       const osc = ac.createOscillator(), gain = ac.createGain();
       osc.connect(gain); gain.connect(ac.destination);
       if (type === "blast") {
-        osc.frequency.setValueAtTime(200, ac.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(50, ac.currentTime + 0.1);
+        osc.frequency.setValueAtTime(200, ac.currentTime); osc.frequency.exponentialRampToValueAtTime(50, ac.currentTime + 0.1);
         gain.gain.setValueAtTime(0.3, ac.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.1);
         osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.1);
       } else if (type === "combo" && comboLevel !== undefined) {
         const notes = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25];
-        const freq = notes[Math.min(comboLevel - 1, notes.length - 1)];
-        osc.frequency.setValueAtTime(freq, ac.currentTime);
+        osc.frequency.setValueAtTime(notes[Math.min(comboLevel - 1, notes.length - 1)], ac.currentTime);
         gain.gain.setValueAtTime(0.2, ac.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.3);
         osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.3);
       }
@@ -632,13 +574,6 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     await fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  // ✅ 핵심 수정: playerName을 사용하므로 이름 입력창 불필요
-  const handleSubmitScore = useCallback(async () => {
-    const countryCode = getCountryCode();
-    await submitScore(playerName, score, countryCode);
-    await fetchLeaderboard();
-  }, [playerName, score, fetchLeaderboard]);
-
   const runBlastCycle = useCallback(async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
     const blasted = findBlasts(currentGrid);
     if (blasted.size === 0) { setCombo(0); setFeverMode(false); setIsAnimating(false); return 0; }
@@ -663,13 +598,11 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     if (currentCombo >= 2) triggerShake(currentCombo);
     await new Promise((res) => setTimeout(res, 350));
     setBlastingCells(new Set());
-    const afterRemove = removeBlasted(currentGrid, blasted);
-    const afterGravity = applyGravity(afterRemove, currentCombo);
+    const afterGravity = applyGravity(removeBlasted(currentGrid, blasted), currentCombo);
     setGrid(afterGravity);
     await new Promise((res) => setTimeout(res, 350));
     if (currentCombo + 1 > 0) playSound("combo", currentCombo + 1);
-    const nb = await runBlastCycle(afterGravity, currentCombo + 1);
-    return bonusMoves + nb;
+    return bonusMoves + await runBlastCycle(afterGravity, currentCombo + 1);
   }, [spawnParticles, triggerShake, feverMode, feverTurns, playSound]);
 
   const handleDragStart = useCallback((x: number, y: number, row: number, col: number) => {
@@ -687,9 +620,9 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     const newMovesLeft = movesLeft - 1;
     setMovesLeft(newMovesLeft);
     setIsAnimating(true);
-    let newGrid: Block[][];
-    if (Math.abs(deltaX) > Math.abs(deltaY)) newGrid = shiftRow(grid, row, deltaX > 0 ? 1 : -1);
-    else newGrid = shiftCol(grid, col, deltaY > 0 ? 1 : -1);
+    const newGrid = Math.abs(deltaX) > Math.abs(deltaY)
+      ? shiftRow(grid, row, deltaX > 0 ? 1 : -1)
+      : shiftCol(grid, col, deltaY > 0 ? 1 : -1);
     setGrid(newGrid);
     await new Promise((res) => setTimeout(res, 300));
     const bonus = await runBlastCycle(newGrid, 0);
@@ -713,14 +646,18 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
       <AnimatePresence>{showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}</AnimatePresence>
       <AnimatePresence>
         {showGameOver && (
-          <GameOverModal score={score} playerName={playerName} onSubmit={handleSubmitScore}
-            onClose={handleReset} onViewLeaderboard={handleOpenLeaderboard} onGoHome={onGoHome} />
+          <GameOverModal
+            score={score}
+            playerName={playerName}
+            onSaveComplete={fetchLeaderboard}
+            onClose={handleReset}
+            onViewLeaderboard={handleOpenLeaderboard}
+            onGoHome={onGoHome}
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {showLeaderboard && (
-          <LeaderboardModal onClose={() => setShowLeaderboard(false)} entries={leaderboardEntries} isLoading={isLoadingBoard} />
-        )}
+        {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} entries={leaderboardEntries} isLoading={isLoadingBoard} />}
       </AnimatePresence>
 
       {/* Header */}
@@ -747,12 +684,12 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
           )}
         </AnimatePresence>
         <div className="flex gap-1.5">
-          {[
+          {([
             { icon: "❓", action: () => setShowTutorial(true) },
             { icon: "🏆", action: handleOpenLeaderboard },
             { icon: "↺",  action: handleReset, cls: "text-gray-400 hover:text-white" },
             { icon: "🏠", action: onGoHome },
-          ].map(({ icon, action, cls = "" }, i) => (
+          ] as { icon: string; action: () => void; cls?: string }[]).map(({ icon, action, cls = "" }, i) => (
             <motion.button key={i} whileTap={{ scale: 0.92 }} onClick={action}
               className={`w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center text-base hover:bg-gray-700 transition-colors ${cls}`}>
               {icon}
@@ -776,10 +713,9 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
       {/* Board */}
       <motion.div animate={shakeControls} className="w-[92vw] max-w-[420px] aspect-square">
         <div ref={boardRef} className="relative w-full h-full bg-gray-900 rounded-2xl p-2 shadow-2xl touch-none"
-          onMouseUp={(e) => handleDragEnd(e.clientX, e.clientY)}
-          onMouseLeave={() => { dragStart.current = null; }}>
+          onMouseUp={(e) => handleDragEnd(e.clientX, e.clientY)} onMouseLeave={() => { dragStart.current = null; }}>
 
-          {/* Interactive tutorial overlay */}
+          {/* Interactive tutorial */}
           <AnimatePresence>
             {showInteractiveTutorial && tutorialTarget && (() => {
               const cs = getCellSize();
