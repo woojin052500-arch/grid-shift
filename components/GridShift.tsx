@@ -22,8 +22,14 @@ const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string
   purple: { bg: "bg-purple-400", shadow: "shadow-purple-400/60", particle: "#c084fc" },
 };
 
+// 피드백 반영: 컬러 이모지 (공유용)
+const COLOR_EMOJI: Record<Color, string> = {
+  red: "🟥", blue: "🟦", green: "🟩", yellow: "🟨", purple: "🟪",
+};
+
 const GRID_SIZE = 8;
 const MAX_SWIPES = 20;
+const MAX_MOVES_CAP = 30; // 피드백 반영: 최대 move 상한선
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function genId() { return Math.random().toString(36).substr(2, 9) + Date.now(); }
@@ -36,6 +42,29 @@ function countryFlag(code: string): string {
 function getCountryCode(): string {
   try { const p = (navigator.language || "en-US").split("-"); return p.length > 1 ? p[p.length - 1].toUpperCase() : "US"; }
   catch { return "KR"; }
+}
+
+// 공유 텍스트 생성
+function buildShareText(playerName: string, score: number, maxCombo: number): string {
+  // 점수 기반 장식 이모지 그리드 생성
+  const colorSeq: Color[] = ["red","blue","green","yellow","purple","purple","yellow","green","blue","red"];
+  const row1 = colorSeq.slice(0, 5).map(c => COLOR_EMOJI[c]).join("");
+  const row2 = colorSeq.slice(5).map(c => COLOR_EMOJI[c]).join("");
+  const scoreEmoji = score > 500 ? "🔥" : score > 200 ? "⭐" : "💀";
+
+  return [
+    `🎮 GRID SHIFT ${scoreEmoji}`,
+    ``,
+    `${row1}`,
+    `${row2}`,
+    ``,
+    `👤 ${playerName}`,
+    `💯 점수: ${score.toLocaleString()}`,
+    maxCombo > 0 ? `⚡ 최대 콤보: x${maxCombo}` : "",
+    ``,
+    `지금 도전해보세요!`,
+    `https://gridshift.vercel.app`,
+  ].filter(l => l !== undefined).join("\n");
 }
 
 function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Block): boolean {
@@ -203,11 +232,9 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
   };
 
   const openLeaderboard = async () => {
-    setShowBoard(true);
-    setLoadingBoard(true);
+    setShowBoard(true); setLoadingBoard(true);
     const data = await getTopScores();
-    setLeaderboard(data);
-    setLoadingBoard(false);
+    setLeaderboard(data); setLoadingBoard(false);
   };
 
   return (
@@ -228,18 +255,14 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
           {(["G","R","I","D"] as const).map((letter, i) => (
             <motion.span key={i} className="font-black leading-none select-none"
               style={{ fontSize: "clamp(3.5rem,16vw,5.5rem)", color: ["#FF6B35","#FFD700","#FF6B35","#3DD6F5"][i], WebkitTextStroke: "3px rgba(0,0,0,0.28)", textShadow: "0 4px 0 rgba(0,0,0,0.28),0 8px 24px rgba(0,0,0,0.18)", fontFamily: "'Arial Black','Impact',sans-serif" }}
-              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 * i, type: "spring", stiffness: 200 }}>
-              {letter}
-            </motion.span>
+              initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 * i, type: "spring", stiffness: 200 }}>{letter}</motion.span>
           ))}
         </div>
         <div className="flex -mt-2" style={{ filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.4))" }}>
           {(["S","H","I","F","T"] as const).map((letter, i) => (
             <motion.span key={i} className="font-black leading-none select-none"
               style={{ fontSize: "clamp(2.2rem,10vw,3.5rem)", color: "#3DD6F5", WebkitTextStroke: "2px rgba(0,0,60,0.35)", textShadow: "0 3px 0 rgba(0,0,60,0.28)", fontFamily: "'Arial Black','Impact',sans-serif" }}
-              initial={{ y: 28, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.42 + 0.08 * i, type: "spring", stiffness: 200 }}>
-              {letter}
-            </motion.span>
+              initial={{ y: 28, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.42 + 0.08 * i, type: "spring", stiffness: 200 }}>{letter}</motion.span>
           ))}
         </div>
         <motion.p className="text-blue-200/60 text-xs font-bold tracking-[0.35em] uppercase mt-2"
@@ -342,7 +365,14 @@ function TutorialModal({ onClose }: { onClose: () => void }) {
           <p className="text-gray-400 text-sm">Master the Grid Shift!</p>
         </div>
         <div className="space-y-3 mb-7">
-          {([["👆","행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],["🧊","같은 색 2×2 블록을 맞추면 터져요!"],["💣","폭탄 블록은 2×2 매치에 포함되면 주변 블록도 같이 폭발!"],["🌈","무지개 블록은 어떤 색과도 매치됩니다."],["✨","콤보 3 이상이면 특수 블록이 등장해요!"]] as [string,string][]).map(([icon, text], i) => (
+          {([
+            ["👆","행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],
+            ["🧊","같은 색 2×2 블록을 맞추면 터져요! 매치마다 +2 무브!"],
+            ["⚡","연속 매치(콤보)도 무브를 추가로 획득할 수 있어요!"],
+            ["💣","폭탄 블록은 2×2 매치에 포함되면 주변 블록도 폭발!"],
+            ["🌈","무지개 블록은 어떤 색과도 매치됩니다."],
+            ["✨","콤보 3 이상이면 특수 블록이 등장해요!"],
+          ] as [string,string][]).map(([icon, text], i) => (
             <div key={i} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded-xl">
               <span className="text-2xl">{icon}</span>
               <p className="text-sm text-gray-300">{text}</p>
@@ -399,40 +429,104 @@ function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void
   );
 }
 
-// ─── GAME OVER MODAL — 자동 저장 ─────────────────────────────────────
-function GameOverModal({ score, playerName, onSaveComplete, onClose, onViewLeaderboard, onGoHome }: {
+// ─── SHARE BUTTON ────────────────────────────────────────────────────
+function ShareButtons({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "GRID SHIFT", text }); return; } catch {}
+    }
+    // fallback: clipboard
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleKakao = () => {
+    // 카카오 미리 공유 준비 (클립보드 복사 후 안내)
+    navigator.clipboard.writeText(text).then(() => {
+      alert("결과가 복사됐어요! 카카오톡에 붙여넣기 해주세요 📋");
+    });
+  };
+
+  const handleInstagram = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert("결과가 복사됐어요! 인스타그램 스토리에 붙여넣기 해주세요 📋");
+    });
+  };
+
+  return (
+    <div className="mt-3 space-y-2">
+      {/* 미리보기 카드 */}
+      <div className="bg-gray-800/80 rounded-xl p-3 border border-gray-700/50">
+        <p className="text-gray-400 text-[10px] font-mono uppercase tracking-widest mb-1.5">공유 미리보기</p>
+        <pre className="text-white text-xs font-mono whitespace-pre-wrap leading-relaxed">{text}</pre>
+      </div>
+
+      {/* 공유 버튼들 */}
+      <div className="grid grid-cols-3 gap-2">
+        {/* 카카오톡 */}
+        <motion.button whileTap={{ scale: 0.94 }} onClick={handleKakao}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs"
+          style={{ background: "#FEE500", color: "#3A1D1D" }}>
+          <span className="text-lg">💬</span>
+          <span>카카오톡</span>
+        </motion.button>
+
+        {/* 인스타그램 */}
+        <motion.button whileTap={{ scale: 0.94 }} onClick={handleInstagram}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs text-white"
+          style={{ background: "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
+          <span className="text-lg">📸</span>
+          <span>인스타그램</span>
+        </motion.button>
+
+        {/* 공유/복사 */}
+        <motion.button whileTap={{ scale: 0.94 }} onClick={handleNativeShare}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs text-white bg-gray-700 hover:bg-gray-600 transition-colors">
+          <span className="text-lg">{copied ? "✅" : "📋"}</span>
+          <span>{copied ? "복사됨!" : "공유/복사"}</span>
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
+// ─── GAME OVER MODAL ─────────────────────────────────────────────────
+function GameOverModal({ score, playerName, maxCombo, onSaveComplete, onClose, onViewLeaderboard, onGoHome }: {
   score: number;
   playerName: string;
+  maxCombo: number;
   onSaveComplete: () => Promise<void>;
   onClose: () => void;
   onViewLeaderboard: () => void;
   onGoHome: () => void;
 }) {
   const [saveState, setSaveState] = useState<"saving" | "done" | "error">("saving");
+  const [showShare, setShowShare] = useState(false);
+  const shareText = buildShareText(playerName, score, maxCombo);
 
-  // ✅ 마운트 즉시 자동 저장
   useEffect(() => {
     (async () => {
       try {
         await submitScore(playerName, score, getCountryCode());
         await onSaveComplete();
         setSaveState("done");
-      } catch {
-        setSaveState("error");
-      }
+      } catch { setSaveState("error"); }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 overflow-y-auto py-4">
       <motion.div initial={{ scale: 0.8, y: 60, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 60, opacity: 0 }}
         transition={{ type: "spring", damping: 18, stiffness: 240 }}
         className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800">
 
         {/* 점수 */}
-        <div className="text-center mb-5">
+        <div className="text-center mb-4">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 300 }} className="text-5xl mb-2">
             {score > 500 ? "🔥" : score > 200 ? "⭐" : "💀"}
           </motion.div>
@@ -440,30 +534,48 @@ function GameOverModal({ score, playerName, onSaveComplete, onClose, onViewLeade
           <p className="text-gray-500 text-sm font-mono mt-0.5">{playerName}의 최종 점수</p>
           <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className="text-yellow-400 text-4xl font-black tabular-nums mt-1">{score.toLocaleString()}</motion.p>
+          {maxCombo > 0 && (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+              className="text-purple-400 text-sm font-bold mt-1">최대 콤보 x{maxCombo} ⚡</motion.p>
+          )}
         </div>
 
-        {/* 자동 저장 상태 뱃지 */}
-        <div className="flex items-center justify-center gap-2 py-3 mb-2 rounded-xl bg-gray-800/60 border border-gray-700/50">
+        {/* 자동 저장 상태 */}
+        <div className="flex items-center justify-center gap-2 py-2.5 mb-3 rounded-xl bg-gray-800/60 border border-gray-700/50">
           {saveState === "saving" && (
-            <>
-              <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
-                className="inline-block w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full flex-shrink-0" />
-              <span className="text-gray-300 text-sm font-bold">점수 저장 중...</span>
-            </>
+            <><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+              className="inline-block w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full flex-shrink-0" />
+            <span className="text-gray-300 text-sm font-bold">점수 저장 중...</span></>
           )}
           {saveState === "done" && (
             <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
-              <span className="text-green-400 text-xl">✅</span>
-              <span className="text-green-400 font-black text-sm">점수가 자동으로 저장됐어요!</span>
+              <span className="text-green-400 text-lg">✅</span>
+              <span className="text-green-400 font-black text-sm">점수가 자동 저장됐어요!</span>
             </motion.div>
           )}
           {saveState === "error" && (
             <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
-              <span className="text-red-400 text-xl">⚠️</span>
-              <span className="text-red-400 font-bold text-sm">저장 실패. 네트워크를 확인하세요.</span>
+              <span className="text-red-400 text-lg">⚠️</span>
+              <span className="text-red-400 font-bold text-sm">저장 실패. 네트워크 확인</span>
             </motion.div>
           )}
         </div>
+
+        {/* 공유 토글 */}
+        <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowShare(!showShare)}
+          className="w-full py-3 rounded-xl font-black text-sm text-white transition-colors mb-1"
+          style={{ background: showShare ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", boxShadow: showShare ? "none" : "0 4px 12px rgba(99,102,241,0.35)" }}>
+          {showShare ? "▲ 공유 닫기" : "📤 결과 공유하기"}
+        </motion.button>
+
+        <AnimatePresence>
+          {showShare && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden">
+              <ShareButtons text={shareText} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 버튼 */}
         <div className="flex gap-2 mt-3">
@@ -485,6 +597,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
   const [grid, setGrid] = useState<Block[][]>(initState.grid);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0); // 피드백: 최대 콤보 추적
   const [particles, setParticles] = useState<Particle[]>([]);
   const [blastingCells, setBlastingCells] = useState<Set<string>>(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
@@ -574,19 +687,37 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     await fetchLeaderboard();
   }, [fetchLeaderboard]);
 
+  // ─── 피드백 반영: 콤보도 move 추가, 상한선 MAX_MOVES_CAP ────────────
   const runBlastCycle = useCallback(async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
     const blasted = findBlasts(currentGrid);
     if (blasted.size === 0) { setCombo(0); setFeverMode(false); setIsAnimating(false); return 0; }
+
+    // 콤보 업데이트 & 최대 콤보 기록
+    const newCombo = currentCombo + 1;
+    setCombo(newCombo);
+    setMaxCombo(prev => Math.max(prev, newCombo));
+
     if (currentCombo >= 4 && !feverMode) { setFeverMode(true); setFeverTurns(3); }
     if (feverMode) { setFeverTurns((prev) => { if (prev <= 1) { setFeverMode(false); return 0; } return prev - 1; }); }
+
+    // ✅ 피드백 반영: 모든 매치(콤보 포함)에 +2 move, 단 MAX_MOVES_CAP 초과 불가
+    // 첫 매치: +2, 콤보 1: +1, 콤보 2+: 콤보 성공 자체가 보상
+    const moveBonus = currentCombo === 0 ? 2 : 1;
     let bonusMoves = 0;
-    if (currentCombo === 0) { setMovesLeft((prev) => prev + 2); bonusMoves = 2; }
+    setMovesLeft((prev) => {
+      const next = Math.min(prev + moveBonus, MAX_MOVES_CAP);
+      bonusMoves = next - prev; // 실제로 얼마나 늘었는지
+      return next;
+    });
+
     spawnParticles([...blasted], currentGrid);
     setBlastingCells(blasted);
     playSound("blast");
+
     let earnedScore = blasted.size * 10 * (currentCombo + 1);
     if (feverMode) earnedScore *= 2;
     setScore((prev) => prev + earnedScore);
+
     if (boardRef.current) {
       const rect = boardRef.current.getBoundingClientRect();
       const cs = rect.width / GRID_SIZE;
@@ -602,7 +733,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     setGrid(afterGravity);
     await new Promise((res) => setTimeout(res, 350));
     if (currentCombo + 1 > 0) playSound("combo", currentCombo + 1);
-    return bonusMoves + await runBlastCycle(afterGravity, currentCombo + 1);
+    return moveBonus + await runBlastCycle(afterGravity, currentCombo + 1);
   }, [spawnParticles, triggerShake, feverMode, feverTurns, playSound]);
 
   const handleDragStart = useCallback((x: number, y: number, row: number, col: number) => {
@@ -634,7 +765,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
 
   const handleReset = () => {
     const ng = createRandomGrid();
-    setGrid(ng); setScore(0); setCombo(0); setFeverMode(false);
+    setGrid(ng); setScore(0); setCombo(0); setMaxCombo(0); setFeverMode(false);
     setParticles([]); setBlastingCells(new Set()); setIsAnimating(false);
     setShowGameOver(false); setMovesLeft(MAX_SWIPES);
     setTutorialTarget(findTutorialSwipeTarget(ng)); setShowInteractiveTutorial(true);
@@ -646,14 +777,9 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
       <AnimatePresence>{showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}</AnimatePresence>
       <AnimatePresence>
         {showGameOver && (
-          <GameOverModal
-            score={score}
-            playerName={playerName}
-            onSaveComplete={fetchLeaderboard}
-            onClose={handleReset}
-            onViewLeaderboard={handleOpenLeaderboard}
-            onGoHome={onGoHome}
-          />
+          <GameOverModal score={score} playerName={playerName} maxCombo={maxCombo}
+            onSaveComplete={fetchLeaderboard} onClose={handleReset}
+            onViewLeaderboard={handleOpenLeaderboard} onGoHome={onGoHome} />
         )}
       </AnimatePresence>
       <AnimatePresence>
@@ -687,7 +813,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
           {([
             { icon: "❓", action: () => setShowTutorial(true) },
             { icon: "🏆", action: handleOpenLeaderboard },
-            { icon: "↺",  action: handleReset, cls: "text-gray-400 hover:text-white" },
+            { icon: "↺", action: handleReset, cls: "text-gray-400 hover:text-white" },
             { icon: "🏠", action: onGoHome },
           ] as { icon: string; action: () => void; cls?: string }[]).map(({ icon, action, cls = "" }, i) => (
             <motion.button key={i} whileTap={{ scale: 0.92 }} onClick={action}
@@ -698,15 +824,17 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
         </div>
       </div>
 
-      {/* Moves gauge */}
+      {/* Moves gauge — MAX_MOVES_CAP 표시 */}
       <div className="w-full max-w-sm px-4 mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-600 text-xs font-mono uppercase tracking-widest">Moves</span>
-          <span className="text-gray-500 text-xs font-mono tabular-nums">{movesLeft} left</span>
+          <span className={`text-xs font-mono tabular-nums ${movesLeft >= MAX_MOVES_CAP ? "text-yellow-400 font-bold" : "text-gray-500"}`}>
+            {movesLeft}{movesLeft >= MAX_MOVES_CAP ? " 🔒MAX" : " left"}
+          </span>
         </div>
         <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-          <motion.div animate={{ width: `${(movesLeft / MAX_SWIPES) * 100}%` }} transition={{ duration: 0.3 }}
-            className={`h-full rounded-full ${movesLeft > 12 ? "bg-green-400" : movesLeft > 6 ? "bg-yellow-400" : "bg-red-400"}`} />
+          <motion.div animate={{ width: `${(movesLeft / MAX_MOVES_CAP) * 100}%` }} transition={{ duration: 0.3 }}
+            className={`h-full rounded-full ${movesLeft >= MAX_MOVES_CAP ? "bg-yellow-400" : movesLeft > 12 ? "bg-green-400" : movesLeft > 6 ? "bg-yellow-400" : "bg-red-400"}`} />
         </div>
       </div>
 
@@ -807,10 +935,7 @@ export default function GridShift() {
   const [screen, setScreen] = useState<"home" | "game">("home");
   const [playerName, setPlayerName] = useState("");
 
-  const handleStart = (name: string) => {
-    setPlayerName(name);
-    setScreen("game");
-  };
+  const handleStart = (name: string) => { setPlayerName(name); setScreen("game"); };
 
   return (
     <AnimatePresence mode="wait">
