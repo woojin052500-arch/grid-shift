@@ -567,6 +567,30 @@ function GameOverModal({ score, playerName, maxCombo, onSaveComplete, onClose, o
   );
 }
 
+// ─── KAKAO AD ────────────────────────────────────────────────────────
+function KakaoAd() {
+  useEffect(() => {
+    // 스크립트 중복 삽입 방지
+    if (document.querySelector('script[src*="ba.min.js"]')) return;
+    const script = document.createElement("script");
+    script.src = "//t1.kakaocdn.net/kas/static/ba.min.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
+  return (
+    <div className="w-full max-w-sm flex justify-center mt-2">
+      <ins
+        className="kakao_ad_area"
+        style={{ display: "none" }}
+        data-ad-unit="DAN-6sr6GmPDNHmT5BR1"
+        data-ad-width="320"
+        data-ad-height="50"
+      />
+    </div>
+  );
+}
+
 // ─── GAME SCREEN ──────────────────────────────────────────────────────
 function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: () => void }) {
   const [initState] = useState(() => { const g = createRandomGrid(); return { grid: g, target: findTutorialSwipeTarget(g) }; });
@@ -958,7 +982,10 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
         </div>
       </motion.div>
 
-      <p className="mt-3 text-gray-700 text-xs font-mono tracking-widest uppercase">2×2 blast · 1×4 line · match to survive</p>
+      {/* 광고 영역 */}
+      <KakaoAd />
+
+      <p className="mt-2 text-gray-700 text-xs font-mono tracking-widest uppercase">2×2 blast · 1×4 line · match to survive</p>
     </motion.div>
   );
 }
