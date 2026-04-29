@@ -7,12 +7,7 @@ import { getTopScores, submitScore, LeaderboardEntry } from "@/lib/supabase";
 // ─── Types & Constants ───────────────────────────────────────────────
 const COLORS = ["red", "blue", "green", "yellow", "purple"] as const;
 type Color = (typeof COLORS)[number];
-
-type Block = {
-  id: string;
-  color: Color;
-  type?: "normal" | "bomb" | "rainbow";
-};
+type Block = { id: string; color: Color; type?: "normal" | "bomb" | "rainbow" };
 
 const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string }> = {
   red:    { bg: "bg-red-400",    shadow: "shadow-red-400/60",    particle: "#f87171" },
@@ -22,54 +17,47 @@ const COLOR_STYLES: Record<Color, { bg: string; shadow: string; particle: string
   purple: { bg: "bg-purple-400", shadow: "shadow-purple-400/60", particle: "#c084fc" },
 };
 
-// 피드백 반영: 컬러 이모지 (공유용)
 const COLOR_EMOJI: Record<Color, string> = {
   red: "🟥", blue: "🟦", green: "🟩", yellow: "🟨", purple: "🟪",
 };
 
+// ✅ 색맹 접근성: 색마다 고유 기호 (모양 + 색 이중 코딩)
+const COLOR_SYMBOL: Record<Color, string> = {
+  red:    "▲",  // 삼각형
+  blue:   "●",  // 원
+  green:  "■",  // 사각형
+  yellow: "◆",  // 다이아몬드
+  purple: "★",  // 별
+};
+
 const GRID_SIZE = 8;
-const MAX_SWIPES = 20;
-const MAX_MOVES_CAP = 30; // 피드백 반영: 최대 move 상한선
+const MAX_SWIPES = 30;
+const MAX_MOVES_CAP = 45;
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function genId() { return Math.random().toString(36).substr(2, 9) + Date.now(); }
 
-function countryFlag(code: string): string {
+function countryFlag(code: string) {
   if (!code || code.length !== 2) return "🌐";
-  return code.toUpperCase().split("").map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join("");
+  return code.toUpperCase().split("").map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join("");
 }
 
-function getCountryCode(): string {
+function getCountryCode() {
   try { const p = (navigator.language || "en-US").split("-"); return p.length > 1 ? p[p.length - 1].toUpperCase() : "US"; }
   catch { return "KR"; }
 }
 
-// 공유 텍스트 생성
-function buildShareText(playerName: string, score: number, maxCombo: number): string {
-  // 점수 기반 장식 이모지 그리드 생성
+function buildShareText(playerName: string, score: number, maxCombo: number) {
   const colorSeq: Color[] = ["red","blue","green","yellow","purple","purple","yellow","green","blue","red"];
   const row1 = colorSeq.slice(0, 5).map(c => COLOR_EMOJI[c]).join("");
   const row2 = colorSeq.slice(5).map(c => COLOR_EMOJI[c]).join("");
-  const scoreEmoji = score > 500 ? "🔥" : score > 200 ? "⭐" : "💀";
-
-  return [
-    `🎮 GRID SHIFT ${scoreEmoji}`,
-    ``,
-    `${row1}`,
-    `${row2}`,
-    ``,
-    `👤 ${playerName}`,
-    `💯 점수: ${score.toLocaleString()}`,
-    maxCombo > 0 ? `⚡ 최대 콤보: x${maxCombo}` : "",
-    ``,
-    `지금 도전해보세요!`,
-    `https://gridshift.vercel.app`,
-  ].filter(l => l !== undefined).join("\n");
+  const scoreEmoji = score > 800 ? "🔥" : score > 400 ? "⭐" : "💀";
+  return [`🎮 GRID SHIFT ${scoreEmoji}`, ``, row1, row2, ``, `👤 ${playerName}`, `💯 점수: ${score.toLocaleString()}`, maxCombo > 0 ? `⚡ 최대 콤보: x${maxCombo}` : "", ``, `지금 도전해보세요!`, `https://gridshift.vercel.app`].filter(l => l !== undefined).join("\n");
 }
 
 function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Block): boolean {
   const isMatchable = (cell: Block | null) => !!cell && (cell.type === "normal" || cell.type === "rainbow" || cell.type === "bomb");
-  const normalColors = (cells: Array<Block | null>) => cells.filter((cell): cell is Block => !!cell && cell.type === "normal").map((cell) => cell.color);
+  const normalColors = (cells: Array<Block | null>) => cells.filter((cell): cell is Block => !!cell && cell.type === "normal").map(cell => cell.color);
   const checkSquare = (row: number, col: number) => {
     const cells = [
       row === r && col === c ? block : grid[row]?.[col],
@@ -77,12 +65,12 @@ function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Blo
       row + 1 === r && col === c ? block : grid[row + 1]?.[col],
       row + 1 === r && col + 1 === c ? block : grid[row + 1]?.[col + 1],
     ];
-    if (cells.some((cell) => !cell)) return false;
+    if (cells.some(cell => !cell)) return false;
     const normals = normalColors(cells);
     if (normals.length === 0) return false;
     const tc = normals[0];
-    if (normals.some((color) => color !== tc)) return false;
-    return cells.every((cell) => cell && isMatchable(cell));
+    if (normals.some(color => color !== tc)) return false;
+    return cells.every(cell => cell && isMatchable(cell));
   };
   if (r > 0 && c > 0 && checkSquare(r - 1, c - 1)) return true;
   if (r > 0 && c < GRID_SIZE - 1 && checkSquare(r - 1, c)) return true;
@@ -93,69 +81,118 @@ function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Blo
 
 function createRandomGrid(): Block[][] {
   const grid: Block[][] = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null) as unknown as Block[]);
-  for (let r = 0; r < GRID_SIZE; r++) {
+  for (let r = 0; r < GRID_SIZE; r++)
     for (let c = 0; c < GRID_SIZE; c++) {
       let block: Block;
       do { block = { id: genId(), color: COLORS[Math.floor(Math.random() * COLORS.length)], type: "normal" }; }
       while (createsImmediateMatch(grid, r, c, block));
       grid[r][c] = block;
     }
-  }
   return grid;
 }
 
 function shiftRow(grid: Block[][], rowIdx: number, dir: number): Block[][] {
-  const ng = grid.map((row) => [...row]);
+  const ng = grid.map(row => [...row]);
   const row = ng[rowIdx];
   if (dir === 1) { const last = row.pop()!; row.unshift(last); }
   else { const first = row.shift()!; row.push(first); }
-  ng[rowIdx] = row;
-  return ng;
+  ng[rowIdx] = row; return ng;
 }
 
 function shiftCol(grid: Block[][], colIdx: number, dir: number): Block[][] {
-  const ng = grid.map((row) => [...row]);
-  const col = ng.map((row) => row[colIdx]);
+  const ng = grid.map(row => [...row]);
+  const col = ng.map(row => row[colIdx]);
   if (dir === 1) { const last = col.pop()!; col.unshift(last); }
   else { const first = col.shift()!; col.push(first); }
   col.forEach((val, i) => { ng[i][colIdx] = val; });
   return ng;
 }
 
-function findBlasts(grid: Block[][]): Set<string> {
-  const toBlast = new Set<string>();
+// ─── 2×2 + 1×4 통합 매치 감지 ───────────────────────────────────────
+type BlastResult = {
+  squareCells: Set<string>;
+  lineCells: Set<string>;
+};
+
+function findAllBlasts(grid: Block[][]): BlastResult {
+  const squareCells = new Set<string>();
+  const lineCells = new Set<string>();
+
+  // 2×2 매치
   for (let r = 0; r < GRID_SIZE - 1; r++) {
     for (let c = 0; c < GRID_SIZE - 1; c++) {
-      const cells = [grid[r][c], grid[r][c + 1], grid[r + 1][c], grid[r + 1][c + 1]];
-      if (cells.some((cell) => !cell)) continue;
+      const cells = [grid[r][c], grid[r][c+1], grid[r+1][c], grid[r+1][c+1]];
+      if (cells.some(cell => !cell)) continue;
       const normals = cells.filter((cell): cell is Block => cell?.type === "normal");
       if (normals.length === 0) continue;
       const tc = normals[0].color;
-      if (normals.some((cell) => cell.color !== tc)) continue;
-      if (!cells.every((cell) => cell?.type === "normal" || cell?.type === "rainbow" || cell?.type === "bomb")) continue;
-      const coords: [number, number][] = [[r, c], [r, c + 1], [r + 1, c], [r + 1, c + 1]];
-      coords.forEach(([rr, cc]) => toBlast.add(`${rr},${cc}`));
+      if (normals.some(cell => cell.color !== tc)) continue;
+      if (!cells.every(cell => cell?.type === "normal" || cell?.type === "rainbow" || cell?.type === "bomb")) continue;
+      const coords: [number, number][] = [[r,c],[r,c+1],[r+1,c],[r+1,c+1]];
+      coords.forEach(([rr,cc]) => squareCells.add(`${rr},${cc}`));
       cells.forEach((cell, idx) => {
         if (cell?.type === "bomb") {
           const [br, bc] = coords[idx];
           for (let dr = -1; dr <= 1; dr++)
             for (let dc = -1; dc <= 1; dc++) {
               const nr = br + dr, nc = bc + dc;
-              if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) toBlast.add(`${nr},${nc}`);
+              if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE)
+                squareCells.add(`${nr},${nc}`);
             }
         }
       });
     }
   }
-  return toBlast;
+
+  // 1×4 수평 매치
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c <= GRID_SIZE - 4; c++) {
+      const cells = [grid[r][c], grid[r][c+1], grid[r][c+2], grid[r][c+3]];
+      if (cells.some(cell => !cell)) continue;
+      const normals = cells.filter((cell): cell is Block => cell?.type === "normal");
+      if (normals.length === 0) continue;
+      const tc = normals[0].color;
+      if (normals.some(cell => cell.color !== tc)) continue;
+      if (!cells.every(cell => cell?.type === "normal" || cell?.type === "rainbow")) continue;
+      const coords: [number, number][] = [[r,c],[r,c+1],[r,c+2],[r,c+3]];
+      const allInSquare = coords.every(([rr,cc]) => squareCells.has(`${rr},${cc}`));
+      if (!allInSquare) {
+        coords.forEach(([rr,cc]) => { if (!squareCells.has(`${rr},${cc}`)) lineCells.add(`${rr},${cc}`); });
+      }
+    }
+  }
+
+  // 1×4 수직 매치
+  for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r <= GRID_SIZE - 4; r++) {
+      const cells = [grid[r][c], grid[r+1][c], grid[r+2][c], grid[r+3][c]];
+      if (cells.some(cell => !cell)) continue;
+      const normals = cells.filter((cell): cell is Block => cell?.type === "normal");
+      if (normals.length === 0) continue;
+      const tc = normals[0].color;
+      if (normals.some(cell => cell.color !== tc)) continue;
+      if (!cells.every(cell => cell?.type === "normal" || cell?.type === "rainbow")) continue;
+      const coords: [number, number][] = [[r,c],[r+1,c],[r+2,c],[r+3,c]];
+      const allInSquare = coords.every(([rr,cc]) => squareCells.has(`${rr},${cc}`));
+      if (!allInSquare) {
+        coords.forEach(([rr,cc]) => { if (!squareCells.has(`${rr},${cc}`)) lineCells.add(`${rr},${cc}`); });
+      }
+    }
+  }
+
+  return { squareCells, lineCells };
 }
 
-type TutorialTarget = { highlight: { row: number; col: number }; swipeDir: "left" | "right" | "up" | "down"; swipeIndex: number };
+function findBlastsSimple(grid: Block[][]): Set<string> {
+  return findAllBlasts(grid).squareCells;
+}
+
+type TutorialTarget = { highlight: { row: number; col: number }; swipeDir: "left"|"right"|"up"|"down"; swipeIndex: number };
 
 function findTutorialSwipeTarget(grid: Block[][]): TutorialTarget {
   for (const dir of [1, -1] as const) {
     for (let r = 0; r < GRID_SIZE; r++) {
-      const blasted = findBlasts(shiftRow(grid, r, dir));
+      const blasted = findBlastsSimple(shiftRow(grid, r, dir));
       if (blasted.size > 0) {
         const [br, bc] = [...blasted][0].split(",").map(Number);
         return { highlight: { row: Math.max(0, Math.min(br, GRID_SIZE - 2)), col: Math.max(0, Math.min(bc, GRID_SIZE - 2)) }, swipeDir: dir === 1 ? "right" : "left", swipeIndex: r };
@@ -164,7 +201,7 @@ function findTutorialSwipeTarget(grid: Block[][]): TutorialTarget {
   }
   for (const dir of [1, -1] as const) {
     for (let c = 0; c < GRID_SIZE; c++) {
-      const blasted = findBlasts(shiftCol(grid, c, dir));
+      const blasted = findBlastsSimple(shiftCol(grid, c, dir));
       if (blasted.size > 0) {
         const [br, bc] = [...blasted][0].split(",").map(Number);
         return { highlight: { row: Math.max(0, Math.min(br, GRID_SIZE - 2)), col: Math.max(0, Math.min(bc, GRID_SIZE - 2)) }, swipeDir: dir === 1 ? "down" : "up", swipeIndex: c };
@@ -175,7 +212,7 @@ function findTutorialSwipeTarget(grid: Block[][]): TutorialTarget {
 }
 
 function removeBlasted(grid: Block[][], blasted: Set<string>): (Block | null)[][] {
-  return grid.map((row, r) => row.map((cell, c) => (blasted.has(`${r},${c}`) ? null : cell)));
+  return grid.map((row, r) => row.map((cell, c) => blasted.has(`${r},${c}`) ? null : cell));
 }
 
 function applyGravity(grid: (Block | null)[][], currentCombo: number): Block[][] {
@@ -197,7 +234,7 @@ function applyGravity(grid: (Block | null)[][], currentCombo: number): Block[][]
 
 interface Particle { id: string; x: number; y: number; color: string; vx: number; vy: number; }
 
-// ─── HOME SCREEN ─────────────────────────────────────────────────────
+// ─── HOME ────────────────────────────────────────────────────────────
 function FloatingBlock({ color, x, y, size, delay, duration }: { color: string; x: number; y: number; size: number; delay: number; duration: number }) {
   return (
     <motion.div className="absolute rounded-xl"
@@ -243,8 +280,7 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
       {[...Array(22)].map((_, i) => (
         <motion.div key={i} className="absolute rounded-full bg-white"
           style={{ width: Math.random() * 3 + 1, height: Math.random() * 3 + 1, left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%` }}
-          animate={{ opacity: [0.15, 0.9, 0.15] }}
-          transition={{ duration: 1.5 + Math.random() * 2, delay: Math.random() * 4, repeat: Infinity }} />
+          animate={{ opacity: [0.15, 0.9, 0.15] }} transition={{ duration: 1.5 + Math.random() * 2, delay: Math.random() * 4, repeat: Infinity }} />
       ))}
       {floatingBlocks.map((b, i) => <FloatingBlock key={i} {...b} />)}
 
@@ -353,29 +389,30 @@ function HomeScreen({ onStart }: { onStart: (name: string) => void }) {
   );
 }
 
-// ─── TUTORIAL MODAL ──────────────────────────────────────────────────
+// ─── TUTORIAL MODAL ───────────────────────────────────────────────────
 function TutorialModal({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
-        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
-        <div className="text-center mb-5">
+        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={e => e.stopPropagation()}>
+        <div className="text-center mb-4">
           <h2 className="text-white text-2xl font-black tracking-tight mb-1">How to Play 🎮</h2>
           <p className="text-gray-400 text-sm">Master the Grid Shift!</p>
         </div>
-        <div className="space-y-3 mb-7">
+        <div className="space-y-2.5 mb-6">
           {([
-            ["👆","행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],
-            ["🧊","같은 색 2×2 블록을 맞추면 터져요! 매치마다 +2 무브!"],
-            ["⚡","연속 매치(콤보)도 무브를 추가로 획득할 수 있어요!"],
-            ["💣","폭탄 블록은 2×2 매치에 포함되면 주변 블록도 폭발!"],
-            ["🌈","무지개 블록은 어떤 색과도 매치됩니다."],
-            ["✨","콤보 3 이상이면 특수 블록이 등장해요!"],
-          ] as [string,string][]).map(([icon, text], i) => (
-            <div key={i} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded-xl">
-              <span className="text-2xl">{icon}</span>
-              <p className="text-sm text-gray-300">{text}</p>
+            ["👆", "행 또는 열 전체를 스와이프해서 블록을 이동시키세요."],
+            ["🟩🟩\n🟩🟩", "같은 색 2×2 매치 → 터짐! +2 무브 & 고득점 (셀당 10pt)"],
+            ["🟦🟦🟦🟦", "같은 색 1×4 매치 → 터짐! +1 무브 & 저득점 (셀당 5pt, 2×2 우선)"],
+            ["💣", "폭탄 블록은 2×2 매치 시 주변까지 폭발!"],
+            ["🌈", "무지개 블록은 어떤 색과도 매치됩니다."],
+            ["👁", "색맹 모드 ON → 블록마다 고유 기호 (▲●■◆★) 표시"],
+            ["⚡", "콤보도 무브 +1! 단 최대 " + MAX_MOVES_CAP + " 무브 상한"],
+          ] as [string, string][]).map(([icon, text], i) => (
+            <div key={i} className="flex items-start gap-3 bg-gray-800/50 p-3 rounded-xl">
+              <span className="text-xl mt-0.5 whitespace-pre leading-tight flex-shrink-0">{icon}</span>
+              <p className="text-sm text-gray-300 leading-snug">{text}</p>
             </div>
           ))}
         </div>
@@ -395,7 +432,7 @@ function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.85, y: 40, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.85, y: 40, opacity: 0 }}
         transition={{ type: "spring", damping: 20, stiffness: 260 }}
-        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={(e) => e.stopPropagation()}>
+        className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-white text-xl font-black tracking-tight">🏆 Global Board</h2>
@@ -429,91 +466,55 @@ function LeaderboardModal({ onClose, entries, isLoading }: { onClose: () => void
   );
 }
 
-// ─── SHARE BUTTON ────────────────────────────────────────────────────
+// ─── SHARE BUTTONS ────────────────────────────────────────────────────
 function ShareButtons({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
+  const copy = async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
   const handleNativeShare = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: "GRID SHIFT", text }); return; } catch {}
-    }
-    // fallback: clipboard
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleKakao = () => {
-    // 카카오 미리 공유 준비 (클립보드 복사 후 안내)
-    navigator.clipboard.writeText(text).then(() => {
-      alert("결과가 복사됐어요! 카카오톡에 붙여넣기 해주세요 📋");
-    });
-  };
-
-  const handleInstagram = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      alert("결과가 복사됐어요! 인스타그램 스토리에 붙여넣기 해주세요 📋");
-    });
+    if (navigator.share) { try { await navigator.share({ title: "GRID SHIFT", text }); return; } catch {} }
+    copy();
   };
 
   return (
     <div className="mt-3 space-y-2">
-      {/* 미리보기 카드 */}
       <div className="bg-gray-800/80 rounded-xl p-3 border border-gray-700/50">
         <p className="text-gray-400 text-[10px] font-mono uppercase tracking-widest mb-1.5">공유 미리보기</p>
         <pre className="text-white text-xs font-mono whitespace-pre-wrap leading-relaxed">{text}</pre>
       </div>
-
-      {/* 공유 버튼들 */}
       <div className="grid grid-cols-3 gap-2">
-        {/* 카카오톡 */}
-        <motion.button whileTap={{ scale: 0.94 }} onClick={handleKakao}
-          className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs"
-          style={{ background: "#FEE500", color: "#3A1D1D" }}>
-          <span className="text-lg">💬</span>
-          <span>카카오톡</span>
+        <motion.button whileTap={{ scale: 0.94 }} onClick={() => { copy(); alert("결과가 복사됐어요! 카카오톡에 붙여넣기 해주세요 📋"); }}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs" style={{ background: "#FEE500", color: "#3A1D1D" }}>
+          <span className="text-lg">💬</span><span>카카오톡</span>
         </motion.button>
-
-        {/* 인스타그램 */}
-        <motion.button whileTap={{ scale: 0.94 }} onClick={handleInstagram}
+        <motion.button whileTap={{ scale: 0.94 }} onClick={() => { copy(); alert("결과가 복사됐어요! 인스타그램 스토리에 붙여넣기 해주세요 📋"); }}
           className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs text-white"
           style={{ background: "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
-          <span className="text-lg">📸</span>
-          <span>인스타그램</span>
+          <span className="text-lg">📸</span><span>인스타그램</span>
         </motion.button>
-
-        {/* 공유/복사 */}
         <motion.button whileTap={{ scale: 0.94 }} onClick={handleNativeShare}
           className="flex flex-col items-center gap-1 py-2.5 rounded-xl font-bold text-xs text-white bg-gray-700 hover:bg-gray-600 transition-colors">
-          <span className="text-lg">{copied ? "✅" : "📋"}</span>
-          <span>{copied ? "복사됨!" : "공유/복사"}</span>
+          <span className="text-lg">{copied ? "✅" : "📋"}</span><span>{copied ? "복사됨!" : "공유/복사"}</span>
         </motion.button>
       </div>
     </div>
   );
 }
 
-// ─── GAME OVER MODAL ─────────────────────────────────────────────────
+// ─── GAME OVER MODAL ──────────────────────────────────────────────────
 function GameOverModal({ score, playerName, maxCombo, onSaveComplete, onClose, onViewLeaderboard, onGoHome }: {
-  score: number;
-  playerName: string;
-  maxCombo: number;
-  onSaveComplete: () => Promise<void>;
-  onClose: () => void;
-  onViewLeaderboard: () => void;
-  onGoHome: () => void;
+  score: number; playerName: string; maxCombo: number;
+  onSaveComplete: () => Promise<void>; onClose: () => void; onViewLeaderboard: () => void; onGoHome: () => void;
 }) {
-  const [saveState, setSaveState] = useState<"saving" | "done" | "error">("saving");
+  const [saveState, setSaveState] = useState<"saving"|"done"|"error">("saving");
   const [showShare, setShowShare] = useState(false);
   const shareText = buildShareText(playerName, score, maxCombo);
 
   useEffect(() => {
     (async () => {
-      try {
-        await submitScore(playerName, score, getCountryCode());
-        await onSaveComplete();
-        setSaveState("done");
-      } catch { setSaveState("error"); }
+      try { await submitScore(playerName, score, getCountryCode()); await onSaveComplete(); setSaveState("done"); }
+      catch { setSaveState("error"); }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -524,84 +525,60 @@ function GameOverModal({ score, playerName, maxCombo, onSaveComplete, onClose, o
       <motion.div initial={{ scale: 0.8, y: 60, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.8, y: 60, opacity: 0 }}
         transition={{ type: "spring", damping: 18, stiffness: 240 }}
         className="w-full max-w-sm bg-gray-900 rounded-3xl p-6 shadow-2xl border border-gray-800">
-
-        {/* 점수 */}
         <div className="text-center mb-4">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 300 }} className="text-5xl mb-2">
-            {score > 500 ? "🔥" : score > 200 ? "⭐" : "💀"}
+            {score > 800 ? "🔥" : score > 400 ? "⭐" : "💀"}
           </motion.div>
           <h2 className="text-white text-2xl font-black tracking-tight">Game Over</h2>
           <p className="text-gray-500 text-sm font-mono mt-0.5">{playerName}의 최종 점수</p>
           <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
             className="text-yellow-400 text-4xl font-black tabular-nums mt-1">{score.toLocaleString()}</motion.p>
           {maxCombo > 0 && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-              className="text-purple-400 text-sm font-bold mt-1">최대 콤보 x{maxCombo} ⚡</motion.p>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-purple-400 text-sm font-bold mt-1">최대 콤보 x{maxCombo} ⚡</motion.p>
           )}
         </div>
 
-        {/* 자동 저장 상태 */}
         <div className="flex items-center justify-center gap-2 py-2.5 mb-3 rounded-xl bg-gray-800/60 border border-gray-700/50">
-          {saveState === "saving" && (
-            <><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
-              className="inline-block w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full flex-shrink-0" />
-            <span className="text-gray-300 text-sm font-bold">점수 저장 중...</span></>
-          )}
-          {saveState === "done" && (
-            <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
-              <span className="text-green-400 text-lg">✅</span>
-              <span className="text-green-400 font-black text-sm">점수가 자동 저장됐어요!</span>
-            </motion.div>
-          )}
-          {saveState === "error" && (
-            <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
-              <span className="text-red-400 text-lg">⚠️</span>
-              <span className="text-red-400 font-bold text-sm">저장 실패. 네트워크 확인</span>
-            </motion.div>
-          )}
+          {saveState === "saving" && (<><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} className="inline-block w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full flex-shrink-0" /><span className="text-gray-300 text-sm font-bold">점수 저장 중...</span></>)}
+          {saveState === "done" && (<motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2"><span className="text-green-400 text-lg">✅</span><span className="text-green-400 font-black text-sm">점수가 자동 저장됐어요!</span></motion.div>)}
+          {saveState === "error" && (<motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2"><span className="text-red-400 text-lg">⚠️</span><span className="text-red-400 font-bold text-sm">저장 실패. 네트워크 확인</span></motion.div>)}
         </div>
 
-        {/* 공유 토글 */}
         <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowShare(!showShare)}
           className="w-full py-3 rounded-xl font-black text-sm text-white transition-colors mb-1"
           style={{ background: showShare ? "rgba(99,102,241,0.4)" : "linear-gradient(135deg,#6366f1,#8b5cf6)", boxShadow: showShare ? "none" : "0 4px 12px rgba(99,102,241,0.35)" }}>
           {showShare ? "▲ 공유 닫기" : "📤 결과 공유하기"}
         </motion.button>
-
         <AnimatePresence>
           {showShare && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden">
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
               <ShareButtons text={shareText} />
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* 버튼 */}
         <div className="flex gap-2 mt-3">
-          <motion.button whileTap={{ scale: 0.96 }} onClick={onViewLeaderboard}
-            className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-colors">🏆 리더보드</motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={onClose}
-            className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-colors">↺ 다시하기</motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={onViewLeaderboard} className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-colors">🏆 리더보드</motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={onClose} className="flex-1 py-3 rounded-xl bg-gray-800 text-gray-300 font-bold text-sm hover:bg-gray-700 transition-colors">↺ 다시하기</motion.button>
         </div>
-        <motion.button whileTap={{ scale: 0.96 }} onClick={onGoHome}
-          className="w-full mt-2 py-3 rounded-xl bg-blue-600/25 text-blue-300 font-bold text-sm hover:bg-blue-600/40 border border-blue-500/25 transition-colors">🏠 홈으로</motion.button>
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onGoHome} className="w-full mt-2 py-3 rounded-xl bg-blue-600/25 text-blue-300 font-bold text-sm hover:bg-blue-600/40 border border-blue-500/25 transition-colors">🏠 홈으로</motion.button>
       </motion.div>
     </motion.div>
   );
 }
 
-// ─── GAME SCREEN ─────────────────────────────────────────────────────
+// ─── GAME SCREEN ──────────────────────────────────────────────────────
 function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: () => void }) {
   const [initState] = useState(() => { const g = createRandomGrid(); return { grid: g, target: findTutorialSwipeTarget(g) }; });
   const [grid, setGrid] = useState<Block[][]>(initState.grid);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [maxCombo, setMaxCombo] = useState(0); // 피드백: 최대 콤보 추적
+  const [maxCombo, setMaxCombo] = useState(0);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [blastingCells, setBlastingCells] = useState<Set<string>>(new Set());
+  const [lineBlastCells, setLineBlastCells] = useState<Set<string>>(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
-  const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number }[]>([]);
+  const [scorePopups, setScorePopups] = useState<{ id: string; value: number; x: number; y: number; isLine?: boolean }[]>([]);
   const [movesLeft, setMovesLeft] = useState(MAX_SWIPES);
   const [showGameOver, setShowGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -614,25 +591,24 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
   const [tutorialTarget, setTutorialTarget] = useState<TutorialTarget | null>(initState.target);
   const [boardSize, setBoardSize] = useState(0);
 
+  // ✅ 색맹 모드 토글
+  const [colorBlindMode, setColorBlindMode] = useState(false);
+
   const shakeControls = useAnimation();
   const boardRef = useRef<HTMLDivElement>(null);
   const gameOverTriggered = useRef(false);
   const dragStart = useRef<{ x: number; y: number; row: number; col: number } | null>(null);
 
-  useEffect(() => {
-    if (boardRef.current) setBoardSize(boardRef.current.getBoundingClientRect().width);
-  }, []);
-
+  useEffect(() => { if (boardRef.current) setBoardSize(boardRef.current.getBoundingClientRect().width); }, []);
   useEffect(() => {
     if (!boardRef.current) return;
-    const observer = new ResizeObserver((entries) => { const e = entries[0]; if (e) setBoardSize(e.contentRect.width); });
-    observer.observe(boardRef.current);
-    return () => observer.disconnect();
+    const obs = new ResizeObserver(entries => { const e = entries[0]; if (e) setBoardSize(e.contentRect.width); });
+    obs.observe(boardRef.current); return () => obs.disconnect();
   }, []);
 
   const getCellSize = useCallback(() => boardSize > 0 ? boardSize / GRID_SIZE : 48, [boardSize]);
 
-  const playSound = useCallback((type: "blast" | "combo", comboLevel?: number) => {
+  const playSound = useCallback((type: "blast"|"combo"|"line", comboLevel?: number) => {
     try {
       const ac = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ac.createOscillator(), gain = ac.createGain();
@@ -641,6 +617,10 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
         osc.frequency.setValueAtTime(200, ac.currentTime); osc.frequency.exponentialRampToValueAtTime(50, ac.currentTime + 0.1);
         gain.gain.setValueAtTime(0.3, ac.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.1);
         osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.1);
+      } else if (type === "line") {
+        osc.frequency.setValueAtTime(440, ac.currentTime); osc.frequency.exponentialRampToValueAtTime(220, ac.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.2, ac.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.12);
+        osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.12);
       } else if (type === "combo" && comboLevel !== undefined) {
         const notes = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.25];
         osc.frequency.setValueAtTime(notes[Math.min(comboLevel - 1, notes.length - 1)], ac.currentTime);
@@ -660,78 +640,86 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     const rect = boardRef.current.getBoundingClientRect();
     const cs = rect.width / GRID_SIZE;
     const np: Particle[] = [];
-    cellKeys.forEach((key) => {
+    cellKeys.forEach(key => {
       const [r, c] = key.split(",").map(Number);
       const block = currentGrid[r]?.[c];
       if (!block) return;
       const cx = c * cs + cs / 2, cy = r * cs + cs / 2;
-      for (let i = 0; i < 24; i++) {
-        const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.5;
-        const speed = 80 + Math.random() * 120;
+      for (let i = 0; i < 16; i++) {
+        const angle = (Math.PI * 2 * i) / 16 + Math.random() * 0.5;
+        const speed = 60 + Math.random() * 100;
         np.push({ id: `${key}-${i}-${Date.now()}`, x: cx, y: cy, color: COLOR_STYLES[block.color].particle, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed });
       }
     });
-    setParticles((prev) => [...prev, ...np]);
-    setTimeout(() => setParticles((prev) => prev.filter((p) => !np.find((np2) => np2.id === p.id))), 900);
+    setParticles(prev => [...prev, ...np]);
+    setTimeout(() => setParticles(prev => prev.filter(p => !np.find(np2 => np2.id === p.id))), 900);
   }, []);
 
   const fetchLeaderboard = useCallback(async () => {
     setIsLoadingBoard(true);
     const entries = await getTopScores();
-    setLeaderboardEntries(entries);
-    setIsLoadingBoard(false);
+    setLeaderboardEntries(entries); setIsLoadingBoard(false);
   }, []);
 
   const handleOpenLeaderboard = useCallback(async () => {
-    setShowLeaderboard(true);
-    await fetchLeaderboard();
+    setShowLeaderboard(true); await fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  // ─── 피드백 반영: 콤보도 move 추가, 상한선 MAX_MOVES_CAP ────────────
+  // ─── ✅ 2×2 + 1×4 통합 blast cycle (feverTurns 버그 수정) ──────────
   const runBlastCycle = useCallback(async (currentGrid: Block[][], currentCombo: number): Promise<number> => {
-    const blasted = findBlasts(currentGrid);
-    if (blasted.size === 0) { setCombo(0); setFeverMode(false); setIsAnimating(false); return 0; }
+    const { squareCells, lineCells } = findAllBlasts(currentGrid);
+    const hasSquare = squareCells.size > 0;
+    const hasLine = lineCells.size > 0;
+    if (!hasSquare && !hasLine) { setCombo(0); setFeverMode(false); setIsAnimating(false); return 0; }
 
-    // 콤보 업데이트 & 최대 콤보 기록
+    const allBlasted = new Set([...squareCells, ...lineCells]);
     const newCombo = currentCombo + 1;
     setCombo(newCombo);
     setMaxCombo(prev => Math.max(prev, newCombo));
 
     if (currentCombo >= 4 && !feverMode) { setFeverMode(true); setFeverTurns(3); }
-    if (feverMode) { setFeverTurns((prev) => { if (prev <= 1) { setFeverMode(false); return 0; } return prev - 1; }); }
 
-    // ✅ 피드백 반영: 모든 매치(콤보 포함)에 +2 move, 단 MAX_MOVES_CAP 초과 불가
-    // 첫 매치: +2, 콤보 1: +1, 콤보 2+: 콤보 성공 자체가 보상
-    const moveBonus = currentCombo === 0 ? 2 : 1;
-    let bonusMoves = 0;
-    setMovesLeft((prev) => {
-      const next = Math.min(prev + moveBonus, MAX_MOVES_CAP);
-      bonusMoves = next - prev; // 실제로 얼마나 늘었는지
-      return next;
-    });
+    // ✅ feverTurns 버그 수정: 콜백 안에서 setFeverMode 분리
+    if (feverMode) {
+      setFeverTurns(prev => {
+        const next = prev - 1;
+        if (next <= 0) setFeverMode(false);
+        return Math.max(next, 0);
+      });
+    }
 
-    spawnParticles([...blasted], currentGrid);
-    setBlastingCells(blasted);
-    playSound("blast");
+    // 무브 보너스: 2×2 있으면 +2, 1×4만이면 +1, 콤보면 +1
+    const baseBonus = hasSquare ? 2 : 1;
+    const moveBonus = currentCombo === 0 ? baseBonus : 1;
+    setMovesLeft(prev => Math.min(prev + moveBonus, MAX_MOVES_CAP));
 
-    let earnedScore = blasted.size * 10 * (currentCombo + 1);
+    spawnParticles([...allBlasted], currentGrid);
+    setBlastingCells(squareCells);
+    setLineBlastCells(lineCells);
+
+    if (hasSquare) playSound("blast");
+    if (hasLine) playSound("line");
+
+    // 점수: 2×2 = 10pt/셀, 1×4 = 5pt/셀
+    let earnedScore = squareCells.size * 10 * (currentCombo + 1) + lineCells.size * 5 * (currentCombo + 1);
     if (feverMode) earnedScore *= 2;
-    setScore((prev) => prev + earnedScore);
+    setScore(prev => prev + earnedScore);
 
     if (boardRef.current) {
       const rect = boardRef.current.getBoundingClientRect();
       const cs = rect.width / GRID_SIZE;
-      const [fr, fc] = [...blasted][0].split(",").map(Number);
+      const firstCell = [...allBlasted][0].split(",").map(Number);
       const pid = `popup-${Date.now()}-${Math.random()}`;
-      setScorePopups((prev) => [...prev, { id: pid, value: earnedScore, x: fc * cs + cs / 2, y: fr * cs }]);
-      setTimeout(() => setScorePopups((prev) => prev.filter((p) => p.id !== pid)), 800);
+      setScorePopups(prev => [...prev, { id: pid, value: earnedScore, x: firstCell[1] * cs + cs / 2, y: firstCell[0] * cs, isLine: !hasSquare }]);
+      setTimeout(() => setScorePopups(prev => prev.filter(p => p.id !== pid)), 800);
     }
+
     if (currentCombo >= 2) triggerShake(currentCombo);
-    await new Promise((res) => setTimeout(res, 350));
-    setBlastingCells(new Set());
-    const afterGravity = applyGravity(removeBlasted(currentGrid, blasted), currentCombo);
+    await new Promise(res => setTimeout(res, 350));
+    setBlastingCells(new Set()); setLineBlastCells(new Set());
+    const afterGravity = applyGravity(removeBlasted(currentGrid, allBlasted), currentCombo);
     setGrid(afterGravity);
-    await new Promise((res) => setTimeout(res, 350));
+    await new Promise(res => setTimeout(res, 350));
     if (currentCombo + 1 > 0) playSound("combo", currentCombo + 1);
     return moveBonus + await runBlastCycle(afterGravity, currentCombo + 1);
   }, [spawnParticles, triggerShake, feverMode, feverTurns, playSound]);
@@ -749,24 +737,22 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     if (Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) return;
     if (showInteractiveTutorial) { setShowInteractiveTutorial(false); setTutorialTarget(null); }
     const newMovesLeft = movesLeft - 1;
-    setMovesLeft(newMovesLeft);
-    setIsAnimating(true);
+    setMovesLeft(newMovesLeft); setIsAnimating(true);
     const newGrid = Math.abs(deltaX) > Math.abs(deltaY)
       ? shiftRow(grid, row, deltaX > 0 ? 1 : -1)
       : shiftCol(grid, col, deltaY > 0 ? 1 : -1);
     setGrid(newGrid);
-    await new Promise((res) => setTimeout(res, 300));
+    await new Promise(res => setTimeout(res, 300));
     const bonus = await runBlastCycle(newGrid, 0);
     if (newMovesLeft + bonus <= 0 && !gameOverTriggered.current) {
-      gameOverTriggered.current = true;
-      setShowGameOver(true);
+      gameOverTriggered.current = true; setShowGameOver(true);
     }
   }, [grid, isAnimating, showGameOver, showTutorial, showInteractiveTutorial, movesLeft, runBlastCycle]);
 
   const handleReset = () => {
     const ng = createRandomGrid();
     setGrid(ng); setScore(0); setCombo(0); setMaxCombo(0); setFeverMode(false);
-    setParticles([]); setBlastingCells(new Set()); setIsAnimating(false);
+    setParticles([]); setBlastingCells(new Set()); setLineBlastCells(new Set()); setIsAnimating(false);
     setShowGameOver(false); setMovesLeft(MAX_SWIPES);
     setTutorialTarget(findTutorialSwipeTarget(ng)); setShowInteractiveTutorial(true);
     gameOverTriggered.current = false;
@@ -776,11 +762,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     <motion.div className={`min-h-[100dvh] flex flex-col items-center justify-start pt-5 pb-4 select-none overflow-hidden ${feverMode ? "bg-gradient-to-br from-red-900 via-purple-900 to-blue-900" : "bg-gray-950"}`}>
       <AnimatePresence>{showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}</AnimatePresence>
       <AnimatePresence>
-        {showGameOver && (
-          <GameOverModal score={score} playerName={playerName} maxCombo={maxCombo}
-            onSaveComplete={fetchLeaderboard} onClose={handleReset}
-            onViewLeaderboard={handleOpenLeaderboard} onGoHome={onGoHome} />
-        )}
+        {showGameOver && <GameOverModal score={score} playerName={playerName} maxCombo={maxCombo} onSaveComplete={fetchLeaderboard} onClose={handleReset} onViewLeaderboard={handleOpenLeaderboard} onGoHome={onGoHome} />}
       </AnimatePresence>
       <AnimatePresence>
         {showLeaderboard && <LeaderboardModal onClose={() => setShowLeaderboard(false)} entries={leaderboardEntries} isLoading={isLoadingBoard} />}
@@ -791,9 +773,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
         <div className="flex flex-col items-start">
           <span className="text-gray-500 text-xs font-mono uppercase tracking-widest">Score</span>
           <AnimatePresence mode="popLayout">
-            <motion.span key={score} initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-white text-3xl font-black tabular-nums">
-              {score.toLocaleString()}
-            </motion.span>
+            <motion.span key={score} initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-white text-3xl font-black tabular-nums">{score.toLocaleString()}</motion.span>
           </AnimatePresence>
           <span className="text-gray-600 text-[11px] font-mono truncate max-w-[90px]">{playerName}</span>
         </div>
@@ -803,28 +783,55 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
               <span className={`${combo >= 3 ? "text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400 animate-pulse" : "text-yellow-400"} text-xs font-mono uppercase tracking-widest`}>Combo</span>
               <motion.span className={`${combo >= 3 ? "text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400" : "text-yellow-400"} font-black`}
                 style={{ fontSize: `${Math.min(2 + combo * 0.3, 4)}rem` }}
-                animate={combo >= 3 ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>
-                x{combo}
-              </motion.span>
+                animate={combo >= 3 ? { scale: [1, 1.2, 1] } : {}} transition={{ duration: 0.5, repeat: Infinity }}>x{combo}</motion.span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ✅ 색맹 모드 포함 헤더 버튼 */}
         <div className="flex gap-1.5">
           {([
-            { icon: "❓", action: () => setShowTutorial(true) },
-            { icon: "🏆", action: handleOpenLeaderboard },
-            { icon: "↺", action: handleReset, cls: "text-gray-400 hover:text-white" },
-            { icon: "🏠", action: onGoHome },
-          ] as { icon: string; action: () => void; cls?: string }[]).map(({ icon, action, cls = "" }, i) => (
-            <motion.button key={i} whileTap={{ scale: 0.92 }} onClick={action}
-              className={`w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center text-base hover:bg-gray-700 transition-colors ${cls}`}>
-              {icon}
-            </motion.button>
+            { icon: "❓", action: () => setShowTutorial(true), title: "도움말" },
+            { icon: "🏆", action: handleOpenLeaderboard, title: "리더보드" },
+            { icon: "↺", action: handleReset, title: "다시하기" },
+            { icon: "🏠", action: onGoHome, title: "홈으로" },
+          ] as { icon: string; action: () => void; title: string }[]).map(({ icon, action, title }, i) => (
+            <motion.button key={i} whileTap={{ scale: 0.92 }} onClick={action} title={title}
+              className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center text-base hover:bg-gray-700 transition-colors">{icon}</motion.button>
           ))}
+          {/* ✅ 색맹 모드 토글 버튼 — 활성 시 강조 */}
+          <motion.button
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setColorBlindMode(p => !p)}
+            title="색맹 모드 (Color Blind Mode)"
+            aria-label="색맹 모드 토글"
+            className={`w-9 h-9 rounded-full flex items-center justify-center text-base transition-colors ${
+              colorBlindMode
+                ? "bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-400/40"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            👁
+          </motion.button>
         </div>
       </div>
 
-      {/* Moves gauge — MAX_MOVES_CAP 표시 */}
+      {/* ✅ 색맹 모드 ON 뱃지 */}
+      <AnimatePresence>
+        {colorBlindMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            className="w-full max-w-sm px-4 mb-1"
+          >
+            <div className="flex items-center justify-center gap-2 py-1 px-3 rounded-full bg-yellow-400/15 border border-yellow-400/30">
+              <span className="text-yellow-300 text-xs font-bold">👁 색맹 모드 ON</span>
+              <span className="text-yellow-200/60 text-[10px] font-mono">▲●■◆★ 기호로 구분</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Moves gauge */}
       <div className="w-full max-w-sm px-4 mb-3">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-600 text-xs font-mono uppercase tracking-widest">Moves</span>
@@ -834,14 +841,14 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
         </div>
         <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
           <motion.div animate={{ width: `${(movesLeft / MAX_MOVES_CAP) * 100}%` }} transition={{ duration: 0.3 }}
-            className={`h-full rounded-full ${movesLeft >= MAX_MOVES_CAP ? "bg-yellow-400" : movesLeft > 12 ? "bg-green-400" : movesLeft > 6 ? "bg-yellow-400" : "bg-red-400"}`} />
+            className={`h-full rounded-full ${movesLeft >= MAX_MOVES_CAP ? "bg-yellow-400" : movesLeft > 18 ? "bg-green-400" : movesLeft > 8 ? "bg-yellow-400" : "bg-red-400"}`} />
         </div>
       </div>
 
       {/* Board */}
       <motion.div animate={shakeControls} className="w-[92vw] max-w-[420px] aspect-square">
         <div ref={boardRef} className="relative w-full h-full bg-gray-900 rounded-2xl p-2 shadow-2xl touch-none"
-          onMouseUp={(e) => handleDragEnd(e.clientX, e.clientY)} onMouseLeave={() => { dragStart.current = null; }}>
+          onMouseUp={e => handleDragEnd(e.clientX, e.clientY)} onMouseLeave={() => { dragStart.current = null; }}>
 
           {/* Interactive tutorial */}
           <AnimatePresence>
@@ -858,7 +865,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
                 <motion.div className="absolute inset-0 rounded-2xl pointer-events-none z-20"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
                   <div className="absolute inset-0 bg-black/60 rounded-2xl" />
-                  {[[row, col], [row, col + 1], [row + 1, col], [row + 1, col + 1]].map(([r, c], idx) => (
+                  {[[row, col], [row, col+1], [row+1, col], [row+1, col+1]].map(([r, c], idx) => (
                     <motion.div key={idx} className="absolute rounded-md border-2 border-yellow-300 bg-yellow-200/15"
                       style={{ width: cs - 5, height: cs - 5, left: c * cs + 6, top: r * cs + 6 }}
                       animate={{ boxShadow: ["0 0 0px 0px rgba(253,224,71,0)", "0 0 14px 5px rgba(253,224,71,0.65)", "0 0 0px 0px rgba(253,224,71,0)"], opacity: [0.55, 1, 0.55] }}
@@ -873,7 +880,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
                   </motion.div>
                   <motion.div className="absolute bottom-3 left-3 right-3 bg-gray-900/85 border border-yellow-400/40 rounded-xl px-3 py-2 text-center"
                     animate={{ opacity: [0.75, 1, 0.75] }} transition={{ duration: 2, repeat: Infinity }}>
-                    <p className="text-yellow-300 text-xs font-black">같은 색 블록 2×2를 맞추면 터져요! 💥</p>
+                    <p className="text-yellow-300 text-xs font-black">같은 색 블록 2×2 또는 1×4를 맞추면 터져요! 💥</p>
                     <p className="text-gray-400 text-[10px] mt-0.5">행이나 열 전체를 스와이프해서 블록을 이동시키세요</p>
                   </motion.div>
                 </motion.div>
@@ -884,7 +891,7 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
           {/* Particles */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-30">
             <AnimatePresence>
-              {particles.map((p) => (
+              {particles.map(p => (
                 <motion.div key={p.id} initial={{ x: p.x, y: p.y, scale: 1, opacity: 1 }} animate={{ x: p.x + p.vx, y: p.y + p.vy, scale: 0, opacity: 0 }} exit={{ opacity: 0 }}
                   transition={{ duration: 0.8, ease: "easeOut" }} className="absolute w-3 h-3 rounded-full"
                   style={{ backgroundColor: p.color, left: 0, top: 0, transform: "translate(-50%,-50%)" }} />
@@ -895,10 +902,13 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
           {/* Score popups */}
           <div className="absolute inset-0 pointer-events-none z-40">
             <AnimatePresence>
-              {scorePopups.map((popup) => (
+              {scorePopups.map(popup => (
                 <motion.div key={popup.id} initial={{ x: popup.x, y: popup.y, opacity: 1, scale: 1 }} animate={{ y: popup.y - 40, opacity: 0, scale: 1.3 }} exit={{ opacity: 0 }}
-                  transition={{ duration: 0.7, ease: "easeOut" }} className="absolute text-white font-black text-sm pointer-events-none"
-                  style={{ left: 0, top: 0, transform: "translate(-50%,-50%)" }}>+{popup.value}</motion.div>
+                  transition={{ duration: 0.7, ease: "easeOut" }}
+                  className={`absolute font-black text-sm pointer-events-none ${popup.isLine ? "text-blue-300" : "text-white"}`}
+                  style={{ left: 0, top: 0, transform: "translate(-50%,-50%)" }}>
+                  {popup.isLine ? "▬" : ""} +{popup.value}
+                </motion.div>
               ))}
             </AnimatePresence>
           </div>
@@ -909,34 +919,55 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
             {grid.map((row, r) => row.map((block, c) => {
               const key = `${r},${c}`;
               const isBlasting = blastingCells.has(key);
+              const isLineBlast = lineBlastCells.has(key);
               const s = COLOR_STYLES[block.color];
               return (
                 <motion.div layout key={block.id} initial={false}
-                  animate={isBlasting ? { scale: [1, 1.3, 0], opacity: [1, 1, 0] } : { scale: 1, opacity: 1 }}
-                  transition={{ layout: { type: "spring", stiffness: 300, damping: 30 }, scale: isBlasting ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 }, opacity: isBlasting ? { duration: 0.3 } : { duration: 0.15 } }}
-                  className={`rounded-md cursor-pointer ${s.bg} shadow-md ${s.shadow} ${isBlasting ? "z-10" : ""} flex items-center justify-center text-white font-black text-lg`}
-                  onMouseDown={(e) => handleDragStart(e.clientX, e.clientY, r, c)}
-                  onTouchStart={(e) => { const t = e.touches[0]; handleDragStart(t.clientX, t.clientY, r, c); }}
-                  onTouchEnd={(e) => { const t = e.changedTouches[0]; handleDragEnd(t.clientX, t.clientY); }}>
-                  {block.type === "bomb" ? "💣" : block.type === "rainbow" ? "🌈" : ""}
+                  animate={
+                    isBlasting ? { scale: [1, 1.3, 0], opacity: [1, 1, 0] }
+                    : isLineBlast ? { scaleX: [1, 1.5, 0], scaleY: [1, 0.8, 0], opacity: [1, 1, 0] }
+                    : { scale: 1, opacity: 1 }
+                  }
+                  transition={{
+                    layout: { type: "spring", stiffness: 300, damping: 30 },
+                    scale: (isBlasting || isLineBlast) ? { duration: 0.3, ease: "easeIn" } : { duration: 0.15 },
+                    opacity: (isBlasting || isLineBlast) ? { duration: 0.3 } : { duration: 0.15 },
+                  }}
+                  className={`rounded-md cursor-pointer ${s.bg} shadow-md ${s.shadow} ${(isBlasting || isLineBlast) ? "z-10" : ""} flex items-center justify-center`}
+                  onMouseDown={e => handleDragStart(e.clientX, e.clientY, r, c)}
+                  onTouchStart={e => { const t = e.touches[0]; handleDragStart(t.clientX, t.clientY, r, c); }}
+                  onTouchEnd={e => { const t = e.changedTouches[0]; handleDragEnd(t.clientX, t.clientY); }}>
+
+                  {/* ✅ 블록 콘텐츠: 특수 블록은 항상 이모지, 일반 블록은 색맹모드 따라 기호 표시 */}
+                  <span
+                    className="text-white font-black leading-none pointer-events-none select-none drop-shadow"
+                    style={{ fontSize: block.type !== "normal" ? "1.1em" : colorBlindMode ? "0.85em" : "0" }}
+                  >
+                    {block.type === "bomb"
+                      ? "💣"
+                      : block.type === "rainbow"
+                      ? "🌈"
+                      : colorBlindMode
+                      ? COLOR_SYMBOL[block.color]
+                      : ""}
+                  </span>
                 </motion.div>
               );
             }))}
           </div>
         </div>
       </motion.div>
-      <p className="mt-4 text-gray-700 text-xs font-mono tracking-widest uppercase">swipe to shift · match 2×2 to blast</p>
+
+      <p className="mt-3 text-gray-700 text-xs font-mono tracking-widest uppercase">2×2 blast · 1×4 line · match to survive</p>
     </motion.div>
   );
 }
 
-// ─── ROOT EXPORT ─────────────────────────────────────────────────────
+// ─── ROOT ─────────────────────────────────────────────────────────────
 export default function GridShift() {
-  const [screen, setScreen] = useState<"home" | "game">("home");
+  const [screen, setScreen] = useState<"home"|"game">("home");
   const [playerName, setPlayerName] = useState("");
-
   const handleStart = (name: string) => { setPlayerName(name); setScreen("game"); };
-
   return (
     <AnimatePresence mode="wait">
       {screen === "home" ? (
