@@ -52,7 +52,7 @@ function buildShareText(playerName: string, score: number, maxCombo: number) {
   const row1 = colorSeq.slice(0, 5).map(c => COLOR_EMOJI[c]).join("");
   const row2 = colorSeq.slice(5).map(c => COLOR_EMOJI[c]).join("");
   const scoreEmoji = score > 800 ? "🔥" : score > 400 ? "⭐" : "💀";
-  return [`🎮 GRID SHIFT ${scoreEmoji}`, ``, row1, row2, ``, `👤 ${playerName}`, `💯 점수: ${score.toLocaleString()}`, maxCombo > 0 ? `⚡ 최대 콤보: x${maxCombo}` : "", ``, `지금 도전해보세요!`, `https://gridshift.vercel.app`].filter(l => l !== undefined).join("\n");
+  return [`🎮 GRID SHIFT ${scoreEmoji}`, ``, row1, row2, ``, `👤 ${playerName}`, `💯 점수: ${score.toLocaleString()}`, maxCombo > 0 ? `⚡ 최대 콤보: x${maxCombo}` : "", ``, `지금 도전해보세요!`, `https://grid-shift-iota.vercel.app`].filter(l => l !== undefined).join("\n");
 }
 
 function createsImmediateMatch(grid: Block[][], r: number, c: number, block: Block): boolean {
