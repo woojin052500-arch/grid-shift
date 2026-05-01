@@ -1,6 +1,30 @@
 {
   "version": 4,
   "routes": {
+    "/": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/",
+      "dataRoute": "/index.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/_not-found": {
       "initialStatus": 404,
       "experimentalBypassFor": [
@@ -25,37 +49,13 @@
         "x-next-revalidated-tags",
         "x-next-revalidate-tag-token"
       ]
-    },
-    "/": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/",
-      "dataRoute": "/index.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
     }
   },
   "dynamicRoutes": {},
   "notFoundRoutes": [],
   "preview": {
-    "previewModeId": "2ee75ec8eb1d90ce9d407cb051e64776",
-    "previewModeSigningKey": "b7a3b0455217d4045f84397bc2e20921041c692001b5fcd3911f55ba7f92fb6f",
-    "previewModeEncryptionKey": "c95cc0536ed54786e14f102e8be161f8541347cdb17d1fb3ae2a316cbb2c54f1"
+    "previewModeId": "510bd7b24616c623097282f26459bcab",
+    "previewModeSigningKey": "577aecffe6243a51718c10b0ab751d13fccb2ee0f839ccbd231c5ad9f96684a2",
+    "previewModeEncryptionKey": "f7cc158455b7954cba078518c7662f04f1c123ea619e9d363765d311bd1c2fa5"
   }
 }

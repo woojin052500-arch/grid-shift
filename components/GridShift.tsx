@@ -707,9 +707,9 @@ function GameScreen({ playerName, onGoHome }: { playerName: string; onGoHome: ()
     if (feverMode) {
       setFeverTurns(prev => {
         const next = prev - 1;
-        if (next <= 0) setFeverMode(false);
         return Math.max(next, 0);
       });
+      if (feverTurns <= 1) setFeverMode(false);
     }
 
     // 무브 보너스: 2×2 있으면 +2, 1×4만이면 +1, 콤보면 +1

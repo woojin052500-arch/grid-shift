@@ -1,10 +1,22 @@
 {
-  "app/page.tsx -> @/components/GridShift": {
+  "app\\page.tsx -> @/components/GridShift": {
     "id": 6777,
     "files": [
       "static/chunks/44530001.c73df95283626b46.js",
-      "static/chunks/962.eb70ac957d59a0fd.js",
-      "static/chunks/777.9176c0edc8c2102a.js"
+      "static/chunks/962.e1239d7a9738686e.js",
+      "static/chunks/777.487810294a0f76c2.js"
+    ]
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
+    "id": 5139,
+    "files": [
+      "static/chunks/139.7a5a8e93a21948c1.js"
+    ]
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_error": {
+    "id": 1646,
+    "files": [
+      "static/chunks/646.f342b7cffc01feb0.js"
     ]
   }
 }
