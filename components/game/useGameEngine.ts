@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Block, GRID_SIZE, MAX_SWIPES, MAX_MOVES_CAP, Particle, TutorialTarget } from "./types";
 import { 
   createRandomGrid, 
