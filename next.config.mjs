@@ -6,6 +6,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // ESLint 경고도 무시해!
   },
+  output: "export",
 };
 
 export default nextConfig;

@@ -4,11 +4,17 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // 싱글턴 패턴: 모듈이 한 번만 초기화되도록 보장
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : null;
+
+if (!supabase) {
+  console.warn("[SUPABASE] 환경 변수가 누락되어 리더보드 기능이 비활성화되었습니다.");
+}
 
 // ============================================================
 // 📊 리더보드 타입 정의
@@ -26,6 +32,7 @@ export interface LeaderboardEntry {
 // ============================================================
 export async function getTopScores(): Promise<LeaderboardEntry[]> {
   console.log("[SUPABASE] TOP 10 점수 조회 시작...");
+  if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("leaderboard")
@@ -51,6 +58,7 @@ export async function submitScore(
   country_code: string = "KR"
 ): Promise<boolean> {
   console.log("[SUPABASE] 점수 제출 시작:", { player_name, score, country_code });
+  if (!supabase) return false;
 
   const { error } = await supabase
     .from("leaderboard")

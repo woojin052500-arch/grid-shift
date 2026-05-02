@@ -1,6 +1,6 @@
 {
   "name": "grid-shift-mvp",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,6 +12,7 @@
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
+    "@capacitor/local-notifications": "^8.0.2",
     "@supabase/supabase-js": "^2.0.0",
     "framer-motion": "^11.18.2",
     "next": "15",

@@ -1,10 +1,16 @@
 {
   "app\\page.tsx -> @/components/GridShift": {
-    "id": 6777,
+    "id": 4668,
     "files": [
       "static/chunks/44530001.c73df95283626b46.js",
-      "static/chunks/962.e1239d7a9738686e.js",
-      "static/chunks/777.487810294a0f76c2.js"
+      "static/chunks/243.e21e5b17e7c66594.js",
+      "static/chunks/668.287918d10f3560cb.js"
+    ]
+  },
+  "node_modules\\@capacitor\\local-notifications\\dist\\esm\\index.js -> ./web": {
+    "id": 2775,
+    "files": [
+      "static/chunks/775.8ff905756d3ae1ce.js"
     ]
   },
   "node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {

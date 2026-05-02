@@ -1,4 +1,4 @@
-package com.wjedulab.gridshift;
+package com.wjedulab.gridshift.v2;
 
 import com.getcapacitor.BridgeActivity;
 

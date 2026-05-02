@@ -16,11 +16,12 @@
     @com.getcapacitor.annotation.PluginMethod public <methods>;
     public <init>();
 }
-
+-keep class com.getcapacitor.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
 # WebView JavaScript Interface 보호
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
 
 # 앱 패키지 보호
--keep class com.wjedulab.gridshift.** { *; }
+-keep class com.wjedulab.gridshift.v2.** { *; }
